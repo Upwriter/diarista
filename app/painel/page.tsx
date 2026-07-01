@@ -13,9 +13,9 @@ interface Perfil {
   cidade: string;
   plano: string;
   atende_todos_bairros: boolean;
-  diarista_bairros: { bairros: { nome: string } | null }[];
-  diarista_servicos: { servicos: { nome: string } | null }[];
-  diarista_imoveis: { imoveis: { nome: string } | null }[];
+  diarista_bairros: { bairros: { nome: string }[] }[];
+  diarista_servicos: { servicos: { nome: string }[] }[];
+  diarista_imoveis: { imoveis: { nome: string }[] }[];
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
@@ -59,7 +59,7 @@ export default function Painel() {
         .single();
 
       if (!data) { router.replace("/entrar"); return; }
-      setPerfil(data as Perfil);
+      setPerfil(data as unknown as Perfil);
 
       // Conta leads recebidos
       const { count } = await supabase
@@ -89,9 +89,9 @@ export default function Painel() {
   if (!perfil) return null;
 
   const primeiroNome = perfil.nome_completo.split(" ")[0];
-  const bairros = perfil.diarista_bairros.map((b) => b.bairros?.nome).filter(Boolean);
-  const servicos = perfil.diarista_servicos.map((s) => s.servicos?.nome).filter(Boolean);
-  const imoveis = perfil.diarista_imoveis.map((i) => i.imoveis?.nome).filter(Boolean);
+  const bairros = perfil.diarista_bairros.flatMap((b) => b.bairros.map((x) => x.nome));
+  const servicos = perfil.diarista_servicos.flatMap((s) => s.servicos.map((x) => x.nome));
+  const imoveis = perfil.diarista_imoveis.flatMap((i) => i.imoveis.map((x) => x.nome));
 
   return (
     <section className="mx-auto max-w-2xl px-5 py-12">
