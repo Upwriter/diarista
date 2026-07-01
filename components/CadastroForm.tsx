@@ -5,22 +5,18 @@ import { BAIRROS, ZONAS } from "@/lib/bairros";
 
 // ── Dados estáticos de serviços e imóveis (espelham o banco) ──────────
 const SERVICOS = [
-  { slug: "limpeza-casa",  nome: "Limpeza de casa" },
-  { slug: "faxina-pesada", nome: "Faxina pesada" },
-  { slug: "pos-obra",      nome: "Limpeza pós-obra" },
-  { slug: "lava-louca",    nome: "Lava louça" },
-  { slug: "limpa-janelas", nome: "Limpa janelas" },
-  { slug: "passa-roupa",   nome: "Passa roupa" },
-  { slug: "cozinheira",    nome: "Cozinheira" },
+  { slug: "diarista",         nome: "Diarista (limpeza comum)" },
+  { slug: "faxineira",        nome: "Faxineira (faxina pesada)" },
+  { slug: "passadeira",       nome: "Passadeira de roupa" },
+  { slug: "limpeza-pos-obra", nome: "Limpeza pós-obra" },
+  { slug: "cozinheira",       nome: "Cozinheira" },
 ];
 
 const IMOVEIS = [
-  { slug: "apartamento", nome: "Apartamento" },
-  { slug: "casa",        nome: "Casa" },
-  { slug: "kitnet",      nome: "Kitnet / Studio" },
-  { slug: "cobertura",   nome: "Cobertura" },
-  { slug: "escritorio",  nome: "Escritório / Sala" },
-  { slug: "sobrado",     nome: "Sobrado" },
+  { slug: "casa-terrea",  nome: "Casa térrea" },
+  { slug: "sobrado",      nome: "Sobrado" },
+  { slug: "apartamento",  nome: "Apartamento" },
+  { slug: "escritorio",   nome: "Escritório" },
 ];
 
 // ── Componentes de campo ──────────────────────────────────────────────
