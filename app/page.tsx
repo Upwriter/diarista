@@ -1,17 +1,24 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { BAIRROS, ZONAS } from "@/lib/bairros";
-import { SITE } from "@/lib/site";
 import CtaWhatsApp from "@/components/CtaWhatsApp";
 import HowItWorks from "@/components/HowItWorks";
 
 const POPULARES = ["pinheiros", "moema", "tatuape", "vila-mariana", "santana", "mooca", "itaim-bibi", "perdizes"];
+
+function Check() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0 text-brand" aria-hidden>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
 
 export default function Home() {
   const populares = BAIRROS.filter((b) => POPULARES.includes(b.slug));
 
   return (
     <>
-      {/* HERO — a localidade é a tese da página */}
+      {/* HERO */}
       <section className="relative overflow-hidden">
         <div
           aria-hidden
@@ -45,7 +52,7 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Bairros populares = atalhos úteis + links internos para SEO */}
+          {/* Bairros populares */}
           <div className="mt-14">
             <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
               Bairros mais buscados
@@ -63,7 +70,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Atalho por região (páginas de zona) */}
+          {/* Buscar por região */}
           <div className="mt-8">
             <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
               Buscar por região
@@ -85,22 +92,100 @@ export default function Home() {
 
       <HowItWorks />
 
-      {/* Banda da diarista (lado da oferta) */}
-      <section className="bg-brand text-paper">
-        <div className="mx-auto flex max-w-content flex-col items-start gap-6 px-5 py-16 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-xl">
-            <h2 className="font-display text-3xl font-bold">É diarista? Receba clientes do seu bairro.</h2>
-            <p className="mt-3 text-paper/80">
-              Cadastre-se de graça e comece a receber contatos de quem precisa de você em São Paulo.
-              Sem mensalidade para começar.
-            </p>
+      {/* Planos para diaristas */}
+      <section className="border-t border-brand-light bg-white">
+        <div className="mx-auto max-w-content px-5 py-16 sm:py-20">
+          <p className="text-sm font-semibold uppercase tracking-widest text-brand">
+            Para diaristas
+          </p>
+          <h2 className="mt-3 font-display text-3xl font-bold leading-tight sm:text-4xl">
+            É diarista? Escolha seu plano.
+          </h2>
+          <p className="mt-3 max-w-xl text-ink/60">
+            Cadastre-se de graça e comece a receber clientes do seu bairro em São Paulo.
+          </p>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:max-w-3xl">
+
+            {/* Card Gratuito */}
+            <div className="flex flex-col rounded-2xl border border-brand-light bg-white p-7">
+              <p className="font-display text-lg font-bold">Gratuito</p>
+              <p className="mt-1 text-sm text-ink/50">Para conhecer a plataforma</p>
+              <p className="mt-5 font-display text-4xl font-extrabold text-ink">
+                R$ 0
+              </p>
+
+              <ul className="mt-6 flex flex-col gap-3 text-sm text-ink/70">
+                {[
+                  "Cadastro com nome e 1 WhatsApp",
+                  "Atende 1 bairro",
+                  "1 tipo de serviço",
+                  "Aparece nas buscas do seu bairro",
+                  "Recebe leads (limitado)",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5">
+                    <Check />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href="/sou-diarista"
+                className="mt-8 inline-flex items-center justify-center rounded-full bg-brand px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-brand-dark"
+              >
+                Começar grátis
+              </Link>
+            </div>
+
+            {/* Card Profissional */}
+            <div className="relative flex flex-col rounded-2xl border-2 border-brand bg-brand-light/30 p-7">
+              {/* Badge recomendado */}
+              <span className="absolute -top-3.5 left-6 rounded-full bg-brand px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-paper">
+                Recomendado
+              </span>
+
+              <p className="font-display text-lg font-bold">Profissional</p>
+              <p className="mt-1 text-sm text-ink/50">Sem fidelidade, cancele quando quiser</p>
+              <p className="mt-5 flex items-end gap-1 font-display text-4xl font-extrabold text-ink">
+                R$ 19,90
+                <span className="mb-1 text-base font-medium text-ink/50">/mês</span>
+              </p>
+
+              <ul className="mt-6 flex flex-col gap-3 text-sm text-ink/70">
+                {[
+                  "Perfil completo com foto e apresentação",
+                  "Até 2 WhatsApp",
+                  "Bairros ilimitados na cidade",
+                  "Até 3 tipos de serviço (extras por R$ 4,90 cada)",
+                  "Leads ilimitados",
+                  "Selo de profissional em destaque",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5">
+                    <Check />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                disabled
+                className="mt-8 inline-flex cursor-not-allowed items-center justify-center rounded-full bg-ink/20 px-6 py-3 text-sm font-semibold text-ink/40"
+              >
+                Em breve
+              </button>
+            </div>
           </div>
-          <Link
-            href="/sou-diarista"
-            className="inline-flex items-center justify-center rounded-full bg-paper px-7 py-3.5 text-base font-semibold text-brand-dark transition-colors hover:bg-sun"
-          >
-            Quero receber clientes
-          </Link>
+
+          {/* Notas abaixo dos cards */}
+          <p className="mt-8 max-w-xl text-center text-sm text-ink/50 sm:text-left">
+            Por enquanto, todas as diaristas usam o plano Gratuito. O plano Profissional será
+            ativado em breve — quem se cadastrar agora garante prioridade.
+          </p>
+          <p className="mt-3 max-w-xl text-center text-sm text-ink/40 sm:text-left">
+            Como funciona a assinatura: é um valor mensal, sem fidelidade. Você pode cancelar
+            quando quiser e continua com o plano até o fim do período já pago.
+          </p>
         </div>
       </section>
     </>
