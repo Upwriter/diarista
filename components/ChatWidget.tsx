@@ -105,8 +105,8 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
                 </svg>
               </span>
               <div>
-                <p className="text-sm font-bold text-paper leading-none">Diarista Perto de Mim</p>
-                <p className="mt-0.5 text-xs text-paper/70">Assistente virtual</p>
+                <p className="text-sm font-bold text-paper leading-none">Cida</p>
+                <p className="mt-0.5 text-xs text-paper/70">Atendente virtual</p>
               </div>
             </div>
             <button
