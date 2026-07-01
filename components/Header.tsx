@@ -47,6 +47,9 @@ export default function Header() {
               {l.label}
             </Link>
           ))}
+          <Link href="/entrar" className="hidden text-ink/70 transition-colors hover:text-brand lg:block">
+            Entrar
+          </Link>
           <Link
             href="/sou-diarista"
             className="rounded-full bg-ink px-4 py-2 text-paper transition-colors hover:bg-brand"
@@ -89,6 +92,15 @@ export default function Header() {
                 </Link>
               </li>
             ))}
+            <li>
+                <Link
+                  href="/entrar"
+                  className="block rounded-lg px-3 py-3 text-base font-medium text-ink/70 transition-colors hover:bg-brand-light hover:text-brand"
+                  onClick={() => setOpen(false)}
+                >
+                  Entrar
+                </Link>
+              </li>
             <li className="mt-3">
               <Link
                 href="/sou-diarista"
