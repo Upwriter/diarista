@@ -1,4 +1,4 @@
-const PASSOS = [
+﻿const PASSOS = [
   {
     titulo: "Diga o que precisa",
     texto:
@@ -18,7 +18,7 @@ const PASSOS = [
 
 export default function HowItWorks() {
   return (
-    <section id="como-funciona" className="mx-auto max-w-content px-5 py-20">
+    <section id="como-funciona" className="mx-auto max-w-content px-5 py-16 sm:py-20">
       <p className="font-display text-sm font-semibold uppercase tracking-widest text-brand">
         Como funciona
       </p>
@@ -26,13 +26,10 @@ export default function HowItWorks() {
         Três passos entre você e uma casa limpa
       </h2>
 
-      <ol className="mt-12 grid gap-8 sm:grid-cols-3">
+      <ol className="mt-10 grid gap-8 sm:grid-cols-3">
         {PASSOS.map((p, i) => (
-          <li key={p.titulo} className="relative">
-            <span
-              aria-hidden
-              className="font-display text-5xl font-extrabold text-brand-light"
-            >
+          <li key={p.titulo} className="flex flex-col">
+            <span aria-hidden className="font-display text-5xl font-extrabold text-brand-light">
               {String(i + 1).padStart(2, "0")}
             </span>
             <h3 className="mt-2 font-display text-xl font-bold">{p.titulo}</h3>
