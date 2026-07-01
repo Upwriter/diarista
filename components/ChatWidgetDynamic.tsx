@@ -1,6 +1,8 @@
-﻿import dynamic from "next/dynamic";
+﻿"use client";
 
-// ChatWidgetConnected lê o slug do contexto; carregado só no client (sem SSR).
+import dynamic from "next/dynamic";
+
+// ssr: false só é permitido em Client Components — por isso o "use client" acima.
 const ChatWidgetConnected = dynamic(() => import("./ChatWidgetConnected"), { ssr: false });
 
 export default ChatWidgetConnected;
