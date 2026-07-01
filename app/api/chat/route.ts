@@ -36,15 +36,10 @@ const SALVAR_LEAD_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   },
 };
 
-async function salvarLead(args: {
-  nome: string;
-  whatsapp: string;
-  servico: string;
-  frequencia: string;
-  bairro: string;
-  detalhes?: string;
-}, bairroSlug?: string) {
-  // Lookup bairro_id pelo slug ou nome
+async function salvarLead(
+  args: { nome: string; whatsapp: string; servico: string; frequencia: string; bairro: string; detalhes?: string },
+  bairroSlug?: string
+) {
   const { data: bairroRow } = await supabaseAdmin
     .from("bairros")
     .select("id")
@@ -52,7 +47,6 @@ async function salvarLead(args: {
     .limit(1)
     .maybeSingle();
 
-  // Lookup servico_id pelo nome
   const { data: servicoRow } = await supabaseAdmin
     .from("servicos")
     .select("id")
@@ -84,16 +78,11 @@ async function salvarLead(args: {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
-      body.messages ?? [];
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = body.messages ?? [];
     const bairroSlug: string | undefined = body.bairroSlug;
 
-    // Proteção de custo: limite de turnos
     if (messages.length > 12) {
-      return NextResponse.json(
-        { error: "conversa muito longa" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "conversa muito longa" }, { status: 400 });
     }
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -109,14 +98,16 @@ export async function POST(req: NextRequest) {
 
     const choice = response.choices[0];
 
-    // Modelo quer chamar salvar_lead
     if (choice.finish_reason === "tool_calls" && choice.message.tool_calls?.length) {
-      const call = choice.message.tool_calls[0] as OpenAI.Chat.Completions.ChatCompletionMessageToolCall;
-      const args = JSON.parse(call.function.arguments);
+      // Acessa function.arguments via cast para evitar conflito com tipo union do SDK
+      const rawCall = choice.message.tool_calls[0] as unknown as {
+        id: string;
+        function: { name: string; arguments: string };
+      };
+      const args = JSON.parse(rawCall.function.arguments);
 
       await salvarLead(args, bairroSlug);
 
-      // Segunda chamada para o modelo gerar a mensagem de fechamento
       const followUp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.5,
@@ -127,7 +118,7 @@ export async function POST(req: NextRequest) {
           choice.message,
           {
             role: "tool",
-            tool_call_id: call.id,
+            tool_call_id: rawCall.id,
             content: "Lead salvo com sucesso.",
           },
         ],
@@ -140,7 +131,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Resposta normal do assistente
     return NextResponse.json({
       role: "assistant",
       content: choice.message.content,
