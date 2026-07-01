@@ -7,7 +7,7 @@ interface Msg { role: Role; content: string }
 
 const FIRST_MSG: Msg = {
   role: "assistant",
-  content: "Oi! Me conta o que você precisa que eu te ajudo a encontrar uma diarista aqui na sua região. 😊",
+  content: "Oi, aqui é a Cida! 😊 Me conta o que você está precisando que eu te ajudo a encontrar uma diarista aqui na sua região.",
 };
 
 const WA_FALLBACK = "https://wa.me/5511921630305";
