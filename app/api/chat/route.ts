@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     // Modelo quer chamar salvar_lead
     if (choice.finish_reason === "tool_calls" && choice.message.tool_calls?.length) {
-      const call = choice.message.tool_calls[0];
+      const call = choice.message.tool_calls[0] as OpenAI.Chat.Completions.ChatCompletionMessageToolCall;
       const args = JSON.parse(call.function.arguments);
 
       await salvarLead(args, bairroSlug);
