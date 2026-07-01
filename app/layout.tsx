@@ -1,12 +1,12 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import { SITE } from "@/lib/site";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { ChatProvider } from "@/components/ChatProvider";
+import ChatWidgetDynamic from "@/components/ChatWidgetDynamic";
 import "./globals.css";
 
-// next/font hospeda as fontes no seu próprio domínio (sem chamadas ao Google
-// no carregamento) e evita "pulo" de layout — ótimo para PageSpeed.
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
   weight: ["600", "700", "800"],
@@ -44,17 +44,16 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${display.variable} ${body.variable}`}>
       <body className="font-sans">
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <ChatProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+          <ChatWidgetDynamic />
+        </ChatProvider>
       </body>
     </html>
   );

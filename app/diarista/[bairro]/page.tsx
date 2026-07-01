@@ -1,15 +1,15 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   BAIRROS, getBairro, bairrosVizinhos, getZona, ZONAS, CIDADE, UF,
 } from "@/lib/bairros";
 import { SITE } from "@/lib/site";
-import CtaWhatsApp from "@/components/CtaWhatsApp";
 import HowItWorks from "@/components/HowItWorks";
 import Faq, { faqDoBairro } from "@/components/Faq";
+import SetChatSlug from "@/components/SetChatSlug";
+import OpenChatButton from "@/components/OpenChatButton";
 
-// Gera, no build, uma página estática para cada bairro.
 export function generateStaticParams() {
   return BAIRROS.map((b) => ({ bairro: b.slug }));
 }
@@ -77,6 +77,7 @@ export default async function BairroPage({ params }: Props) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <SetChatSlug slug={bairro.slug} />
 
       <section className="relative overflow-hidden">
         <div
@@ -111,7 +112,7 @@ export default async function BairroPage({ params }: Props) {
             você combina valor, dia e detalhes direto com a profissional.
           </p>
           <div className="mt-8">
-            <CtaWhatsApp bairro={bairro.nome}>Encontrar diarista em {bairro.nome}</CtaWhatsApp>
+            <OpenChatButton label={`Encontrar diarista em ${bairro.nome}`} />
           </div>
         </div>
       </section>
