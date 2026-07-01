@@ -62,7 +62,7 @@ export default function Termos() {
       <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
         Termos de Uso
       </h1>
-      <p className="mt-3 text-sm text-ink/50">Última atualização: 30 de junho de 2025</p>
+      <p className="mt-3 text-sm text-ink/50">Última atualização: 30 de junho de 2026</p>
 
       <div className="mt-10 space-y-8">
         {secoes.map((s) => (

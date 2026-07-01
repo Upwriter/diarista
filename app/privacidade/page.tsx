@@ -67,7 +67,7 @@ export default function Privacidade() {
       <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
         Política de Privacidade
       </h1>
-      <p className="mt-3 text-sm text-ink/50">Última atualização: 30 de junho de 2025</p>
+      <p className="mt-3 text-sm text-ink/50">Última atualização: 30 de junho de 2026</p>
 
       <p className="mt-6 leading-relaxed text-ink/70">
         Esta Política explica como tratamos os dados pessoais de Clientes e Diaristas, em
