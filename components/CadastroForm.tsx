@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { BAIRROS, ZONAS } from "@/lib/bairros";
 
 // ── Dados estáticos de serviços e imóveis (espelham o banco) ──────────
