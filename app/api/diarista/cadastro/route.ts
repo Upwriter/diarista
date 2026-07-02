@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       bairros,
       atendeTodosBairros,
       servicos,
+      precos,
       imoveis,
     } = body;
 
@@ -114,6 +115,22 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from("diarista_servicos").insert(
         servicoRows.map((s: { id: string }) => ({ diarista_id: diaId, servico_id: s.id }))
       );
+
+      // Faixa de preço por serviço (dado interno). Só grava as faixas válidas
+      // informadas para serviços que a diarista realmente selecionou.
+      const FAIXAS_VALIDAS = ["ate-100", "100-150", "150-200", "200-300", "acima-300"];
+      if (precos && typeof precos === "object") {
+        const precoRows = servicoRows
+          .filter((s: { slug: string }) => FAIXAS_VALIDAS.includes(precos[s.slug]))
+          .map((s: { id: string; slug: string }) => ({
+            diarista_id: diaId,
+            servico_id:  s.id,
+            faixa:       precos[s.slug] as string,
+          }));
+        if (precoRows.length) {
+          await supabaseAdmin.from("diarista_servico_preco").insert(precoRows);
+        }
+      }
     }
 
     // ── h) Imóveis ────────────────────────────────────────────────────

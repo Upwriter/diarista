@@ -20,6 +20,16 @@ const IMOVEIS = [
   { slug: "escritorio",   nome: "Escritório" },
 ];
 
+// Faixas de preço por serviço (dado interno — nunca exposto ao cliente).
+// Os códigos abaixo espelham exatamente a coluna `faixa` do banco.
+const FAIXAS_PRECO = [
+  { codigo: "ate-100",   nome: "Até R$ 100" },
+  { codigo: "100-150",   nome: "R$ 100 a R$ 150" },
+  { codigo: "150-200",   nome: "R$ 150 a R$ 200" },
+  { codigo: "200-300",   nome: "R$ 200 a R$ 300" },
+  { codigo: "acima-300", nome: "Acima de R$ 300" },
+];
+
 // ── Componentes de campo ──────────────────────────────────────────────
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="mb-1.5 block text-sm font-semibold text-ink">{children}</label>;
@@ -91,6 +101,8 @@ export default function CadastroForm() {
   const [whatsapp, setWhatsapp] = useState("");
   const [whatsapp2, setWhatsapp2] = useState("");
   const [servicosSel, setServicosSel] = useState<string[]>([]);
+  // Faixa de preço escolhida por serviço: { [slug]: codigoFaixa }
+  const [precosSel, setPrecosSel] = useState<Record<string, string>>({});
   const [imoveisSel, setImoveisSel] = useState<string[]>([]);
   const [atendeTodos, setAtendeTodos] = useState(false);
   const [bairrosSel, setBairrosSel] = useState<string[]>([]);
@@ -100,6 +112,20 @@ export default function CadastroForm() {
 
   function toggleArr(arr: string[], set: (v: string[]) => void, slug: string) {
     set(arr.includes(slug) ? arr.filter((s) => s !== slug) : [...arr, slug]);
+  }
+
+  // Alterna um serviço e, ao desmarcar, remove a faixa de preço associada.
+  function toggleServico(slug: string) {
+    setServicosSel((prev) => {
+      if (prev.includes(slug)) {
+        setPrecosSel((p) => {
+          const { [slug]: _, ...resto } = p;
+          return resto;
+        });
+        return prev.filter((s) => s !== slug);
+      }
+      return [...prev, slug];
+    });
   }
 
   function formatCpf(v: string) {
@@ -162,6 +188,7 @@ export default function CadastroForm() {
           ...(whatsapp2 ? { whatsapp2: whatsapp2.replace(/\D/g, "") } : {}),
           cidade: "São Paulo",
           servicos: servicosSel,
+          precos: precosSel,
           imoveis: imoveisSel,
           atendeTodosBairros: atendeTodos,
           bairros: atendeTodos ? [] : bairrosSel,
@@ -189,8 +216,14 @@ export default function CadastroForm() {
         <h2 className="font-display text-2xl font-bold">Cadastro realizado!</h2>
         <p className="mt-3 text-ink/70">
           Bem-vinda ao Diarista Perto de Mim! Em breve você começará a receber contatos de
-          clientes da sua região. Verifique seu e-mail para confirmar a conta.
+          clientes da sua região.
         </p>
+        <Link
+          href="/entrar"
+          className="mt-6 inline-block rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-brand-dark"
+        >
+          Entrar na sua conta
+        </Link>
       </div>
     );
   }
@@ -284,12 +317,48 @@ export default function CadastroForm() {
                 <CheckPill
                   key={s.slug}
                   checked={servicosSel.includes(s.slug)}
-                  onChange={() => toggleArr(servicosSel, setServicosSel, s.slug)}
+                  onChange={() => toggleServico(s.slug)}
                 >
                   {s.nome}
                 </CheckPill>
               ))}
             </div>
+
+            {servicosSel.length > 0 && (
+              <div className="mt-5 rounded-xl border border-brand-light bg-paper/50 p-4">
+                <p className="text-sm font-semibold text-ink">
+                  Quanto você costuma cobrar?
+                </p>
+                <p className="mt-0.5 text-xs text-ink/50">
+                  Só pra gente entender melhor o mercado — o cliente nunca vê esse valor. Pode deixar em branco.
+                </p>
+                <div className="mt-3 space-y-3">
+                  {SERVICOS.filter((s) => servicosSel.includes(s.slug)).map((s) => (
+                    <div key={s.slug} className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-ink/80">{s.nome}</span>
+                      <select
+                        value={precosSel[s.slug] ?? ""}
+                        onChange={(e) =>
+                          setPrecosSel((p) => {
+                            if (!e.target.value) {
+                              const { [s.slug]: _, ...resto } = p;
+                              return resto;
+                            }
+                            return { ...p, [s.slug]: e.target.value };
+                          })
+                        }
+                        className="shrink-0 rounded-lg border border-brand-light bg-white px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none"
+                      >
+                        <option value="">Prefiro não dizer</option>
+                        {FAIXAS_PRECO.map((f) => (
+                          <option key={f.codigo} value={f.codigo}>{f.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div>
             <h2 className="font-display text-xl font-bold">Tipos de imóvel</h2>
