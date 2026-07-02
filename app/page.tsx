@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { BAIRROS, ZONAS } from "@/lib/bairros";
+import { BAIRROS, ZONAS, urlBairro, urlZona, HUB_CIDADE_PATH } from "@/lib/bairros";
 import CtaWhatsApp from "@/components/CtaWhatsApp";
 import HowItWorks from "@/components/HowItWorks";
 
@@ -58,7 +58,7 @@ export default function Home() {
               {populares.map((b) => (
                 <Link
                   key={b.slug}
-                  href={`/diarista/${b.slug}`}
+                  href={urlBairro(b.slug)}
                   className="rounded-full bg-white px-4 py-2 text-sm font-medium ring-1 ring-ink/10 transition-colors hover:ring-brand hover:text-brand"
                 >
                   {b.nome}
@@ -76,12 +76,27 @@ export default function Home() {
               {ZONAS.map((z) => (
                 <Link
                   key={z.slug}
-                  href={`/diarista/zona/${z.slug}`}
+                  href={urlZona(z.slug)}
                   className="rounded-full bg-brand-light px-4 py-2 text-sm font-semibold text-brand-dark transition-colors hover:bg-brand hover:text-paper"
                 >
                   {z.nome}
                 </Link>
               ))}
+            </div>
+          </div>
+
+          {/* Cidades atendidas */}
+          <div className="mt-8">
+            <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
+              Cidades atendidas
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              <Link
+                href={HUB_CIDADE_PATH}
+                className="inline-flex items-center gap-2 rounded-full bg-brand-light px-4 py-2 text-sm font-semibold text-brand-dark transition-colors hover:bg-brand hover:text-paper"
+              >
+                <span aria-hidden>📍</span> São Paulo
+              </Link>
             </div>
           </div>
         </div>

@@ -1,21 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ZONAS, getZona, bairrosDaZona, CIDADE, UF } from "@/lib/bairros";
+import { ZONAS, getZona, bairrosDaZona, CIDADE, UF, urlBairro, urlZona } from "@/lib/bairros";
 import { SITE } from "@/lib/site";
 import CtaWhatsApp from "@/components/CtaWhatsApp";
 import HowItWorks from "@/components/HowItWorks";
 
-// Uma página estática por zona (5 no total): /diarista/zona/<slug>
-export function generateStaticParams() {
-  return ZONAS.map((z) => ({ zona: z.slug }));
-}
-export const dynamicParams = false;
-
-type Props = { params: Promise<{ zona: string }> };
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { zona: slug } = await params;
+export function zonaMetadata(slug: string): Metadata {
   const zona = getZona(slug);
   if (!zona) return {};
 
@@ -23,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const descricao =
     `Encontre diaristas ${zona.preposicao} ${zona.nome} de ${CIDADE}. ` +
     `Veja os bairros atendidos e conecte-se, sem custo, a profissionais de limpeza da sua região.`;
-  const url = `${SITE.url}/diarista/zona/${zona.slug}`;
+  const url = `${SITE.url}${urlZona(zona.slug)}`;
 
   return {
     title: titulo,
@@ -33,13 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function ZonaPage({ params }: Props) {
-  const { zona: slug } = await params;
+export default function ZonaView({ slug }: { slug: string }) {
   const zona = getZona(slug);
   if (!zona) notFound();
 
   const bairros = bairrosDaZona(zona.nome);
-  const url = `${SITE.url}/diarista/zona/${zona.slug}`;
+  const url = `${SITE.url}${urlZona(zona.slug)}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -106,7 +96,7 @@ export default async function ZonaPage({ params }: Props) {
           {bairros.map((b) => (
             <Link
               key={b.slug}
-              href={`/diarista/${b.slug}`}
+              href={urlBairro(b.slug)}
               className="flex items-center justify-between rounded-xl bg-white px-4 py-3 font-medium ring-1 ring-ink/10 transition-colors hover:ring-brand hover:text-brand"
             >
               Diarista em {b.nome}
@@ -125,7 +115,7 @@ export default async function ZonaPage({ params }: Props) {
           {ZONAS.filter((z) => z.slug !== zona.slug).map((z) => (
             <Link
               key={z.slug}
-              href={`/diarista/zona/${z.slug}`}
+              href={urlZona(z.slug)}
               className="rounded-full bg-white px-4 py-2 text-sm font-medium ring-1 ring-ink/10 transition-colors hover:ring-brand hover:text-brand"
             >
               {z.nome}

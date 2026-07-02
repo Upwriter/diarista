@@ -117,6 +117,21 @@ export const BAIRROS: Bairro[] = [
   { nome: "Perus", slug: "perus", zona: "Zona Norte" },
 ];
 
+// ── Helpers de URL ────────────────────────────────────────────────────
+// Formato das URLs públicas de SEO. Centralizado aqui para manter
+// consistência entre páginas, sitemap e links internos.
+export const HUB_CIDADE_PATH = "/diaristas-em-sao-paulo";
+export const PREFIXO_BAIRRO = "sao-paulo-diarista-";
+export const PREFIXO_ZONA = "sao-paulo-diarista-zona-";
+
+export function urlBairro(slug: string): string {
+  return `/${PREFIXO_BAIRRO}${slug}`;
+}
+
+export function urlZona(slug: string): string {
+  return `/${PREFIXO_ZONA}${slug}`;
+}
+
 export function getBairro(slug: string): Bairro | undefined {
   return BAIRROS.find((b) => b.slug === slug);
 }

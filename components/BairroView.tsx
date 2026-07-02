@@ -1,8 +1,8 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  BAIRROS, getBairro, bairrosVizinhos, getZona, ZONAS, CIDADE, UF,
+  getBairro, bairrosVizinhos, ZONAS, CIDADE, UF, urlBairro, urlZona,
 } from "@/lib/bairros";
 import { SITE } from "@/lib/site";
 import HowItWorks from "@/components/HowItWorks";
@@ -10,15 +10,7 @@ import Faq, { faqDoBairro } from "@/components/Faq";
 import SetChatSlug from "@/components/SetChatSlug";
 import OpenChatButton from "@/components/OpenChatButton";
 
-export function generateStaticParams() {
-  return BAIRROS.map((b) => ({ bairro: b.slug }));
-}
-export const dynamicParams = false;
-
-type Props = { params: Promise<{ bairro: string }> };
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { bairro: slug } = await params;
+export function bairroMetadata(slug: string): Metadata {
   const bairro = getBairro(slug);
   if (!bairro) return {};
 
@@ -26,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const descricao =
     `Precisa de diarista em ${bairro.nome}? Conectamos você, sem custo, a ` +
     `profissionais de limpeza que atendem ${bairro.nome} e a ${bairro.zona} de ${CIDADE}.`;
-  const url = `${SITE.url}/diarista/${bairro.slug}`;
+  const url = `${SITE.url}${urlBairro(bairro.slug)}`;
 
   return {
     title: titulo,
@@ -36,14 +28,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function BairroPage({ params }: Props) {
-  const { bairro: slug } = await params;
+export default function BairroView({ slug }: { slug: string }) {
   const bairro = getBairro(slug);
   if (!bairro) notFound();
 
   const vizinhos = bairrosVizinhos(slug);
   const zona = ZONAS.find((z) => z.nome === bairro.zona);
-  const url = `${SITE.url}/diarista/${bairro.slug}`;
+  const url = `${SITE.url}${urlBairro(bairro.slug)}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -59,7 +50,7 @@ export default async function BairroPage({ params }: Props) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Início", item: SITE.url },
-          { "@type": "ListItem", position: 2, name: bairro.zona, item: `${SITE.url}/diarista/zona/${zona?.slug ?? ""}` },
+          { "@type": "ListItem", position: 2, name: bairro.zona, item: `${SITE.url}${urlZona(zona?.slug ?? "")}` },
           { "@type": "ListItem", position: 3, name: `Diarista em ${bairro.nome}`, item: url },
         ],
       },
@@ -93,7 +84,7 @@ export default async function BairroPage({ params }: Props) {
             <Link href="/" className="hover:text-brand">Início</Link>
             <span className="mx-2">/</span>
             {zona ? (
-              <Link href={`/diarista/zona/${zona.slug}`} className="hover:text-brand">{bairro.zona}</Link>
+              <Link href={urlZona(zona.slug)} className="hover:text-brand">{bairro.zona}</Link>
             ) : (
               <span>{bairro.zona}</span>
             )}
@@ -150,7 +141,7 @@ export default async function BairroPage({ params }: Props) {
               Diaristas em outros bairros da {bairro.zona}
             </h2>
             {zona && (
-              <Link href={`/diarista/zona/${zona.slug}`} className="text-sm font-semibold text-brand hover:underline">
+              <Link href={urlZona(zona.slug)} className="text-sm font-semibold text-brand hover:underline">
                 Ver toda a {bairro.zona} →
               </Link>
             )}
@@ -159,7 +150,7 @@ export default async function BairroPage({ params }: Props) {
             {vizinhos.map((v) => (
               <Link
                 key={v.slug}
-                href={`/diarista/${v.slug}`}
+                href={urlBairro(v.slug)}
                 className="rounded-full bg-white px-4 py-2 text-sm font-medium ring-1 ring-ink/10 transition-colors hover:ring-brand hover:text-brand"
               >
                 Diarista em {v.nome}
