@@ -60,7 +60,7 @@ export default function Footer() {
 
         {/* Linha inferior */}
         <div className="mt-8 flex flex-col gap-3 border-t border-brand-light pt-6 text-sm text-ink/50 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} {SITE.nome}. Não somos empregadores nem prestamos serviço de limpeza.</p>
+          <p>© {new Date().getFullYear()} {SITE.nome}. CNPJ 53.312.965/0001-86. Não somos empregadores nem prestamos serviço de limpeza.</p>
           <div className="flex gap-5">
             <Link href="/termos" className="hover:text-brand">Termos de uso</Link>
             <Link href="/privacidade" className="hover:text-brand">Privacidade</Link>
