@@ -36,7 +36,7 @@ export default function AdminBlogLista({ posts }: { posts: PostAdmin[] }) {
     if (!confirm(`Excluir o artigo "${titulo}"? Esta ação não pode ser desfeita.`)) return;
     setExcluindo(id);
     try {
-      const res = await fetch(`/api/admin/blog?id=${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/redator?id=${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!json.ok) throw new Error(json.erro || "Erro");
       router.refresh();
