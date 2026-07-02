@@ -8,7 +8,8 @@ export const metadata: Metadata = {
 
 export default function SobreNos() {
   return (
-    <section className="mx-auto max-w-3xl px-5 py-20">
+    <>
+    <section className="mx-auto max-w-3xl px-5 pb-8 pt-20">
       <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
         Quem somos
       </p>
@@ -42,14 +43,15 @@ export default function SobreNos() {
           e deixar o resto com quem entende do serviço.
         </p>
       </div>
+    </section>
 
       {/* Quem está por trás */}
-      <div className="mt-16">
+      <section className="mx-auto max-w-4xl px-5 pb-20">
         <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
           Quem está por trás
         </p>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-5 sm:grid-cols-2">
           {/* Card: Filipi */}
           <div className="flex flex-col items-center rounded-2xl border border-brand-light bg-white p-6 text-center sm:p-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -132,7 +134,7 @@ export default function SobreNos() {
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
