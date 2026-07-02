@@ -11,6 +11,7 @@ export async function GET(req: NextRequest, { params }: Props) {
   const { diaristaId } = await params;
   const origem = req.nextUrl.searchParams.get("origem") || "perfil";
   const leadId = req.nextUrl.searchParams.get("lead_id");
+  const conversaId = req.nextUrl.searchParams.get("conversa");
 
   // Busca o número da diarista (nunca exposto em JSON, só usado no redirect).
   const { data } = await supabaseAdmin
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest, { params }: Props) {
       diarista_id: diaristaId,
       origem,
       ...(leadId ? { lead_id: leadId } : {}),
+      ...(conversaId ? { conversa_id: conversaId } : {}),
     });
   } catch {
     // silencioso — o importante é encaminhar o cliente

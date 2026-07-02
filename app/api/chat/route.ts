@@ -117,7 +117,7 @@ async function salvarLead(
     imovel: string; bairro: string; detalhes?: string;
   },
   bairroSlugCtx?: string
-): Promise<{ bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
+): Promise<{ leadId?: string; bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
   // Bairro: prioriza o slug do contexto; senão resolve pelo texto digitado.
   const bairroRow = await resolverBairro(args.bairro, bairroSlugCtx);
 
@@ -138,18 +138,19 @@ async function salvarLead(
     .filter(Boolean)
     .join(" | ");
 
-  const { error } = await supabaseAdmin.from("leads").insert({
+  const { data: leadRow, error } = await supabaseAdmin.from("leads").insert({
     nome:       args.nome,
     whatsapp:   args.whatsapp,
     bairro_id:  bairroRow?.id ?? null,
     servico_id: servicoRow?.id ?? null,
     detalhes:   detalhesCompleto,
     origem:     bairroSlugCtx ?? "chatbot",
-  });
+  }).select("id").single();
 
   if (error) throw new Error(`Erro ao salvar lead: ${error.message}`);
 
   return {
+    leadId:     leadRow?.id ?? undefined,
     bairroSlug: bairroRow?.slug ?? undefined,
     bairroNome: bairroRow?.nome ?? undefined,
     servicoSlug,
@@ -157,11 +158,60 @@ async function salvarLead(
   };
 }
 
+// ── Persistência da conversa (rastreamento) ───────────────────────────
+interface MsgChat { autor: "lead" | "cida"; texto: string; horario: string }
+
+// Garante um id de conversa: reusa o recebido ou cria uma linha nova.
+async function garantirConversa(conversaId?: string): Promise<string | undefined> {
+  if (conversaId) return conversaId;
+  const { data } = await supabaseAdmin
+    .from("conversas_chat")
+    .insert({ mensagens: [] })
+    .select("id")
+    .single();
+  return data?.id ?? undefined;
+}
+
+// Salva o histórico completo da conversa e atualiza a última atividade.
+// Preserva os horários das mensagens já registradas antes.
+async function salvarConversa(
+  conversaId: string,
+  messages: { role: string; content: string | null }[],
+  assistantContent: string,
+  leadId?: string
+) {
+  const { data: atual } = await supabaseAdmin
+    .from("conversas_chat")
+    .select("mensagens")
+    .eq("id", conversaId)
+    .maybeSingle();
+  const anteriores: MsgChat[] = Array.isArray(atual?.mensagens) ? atual!.mensagens : [];
+
+  const agora = new Date().toISOString();
+  const todas = [...messages, { role: "assistant", content: assistantContent }];
+  const mensagens: MsgChat[] = todas
+    .filter((m) => typeof m.content === "string" && m.content.trim() !== "")
+    .map((m, i) => ({
+      autor: m.role === "user" ? "lead" : "cida",
+      texto: m.content as string,
+      horario: anteriores[i]?.horario ?? agora,
+    }));
+
+  const update: Record<string, unknown> = {
+    mensagens,
+    ultima_atividade_em: agora,
+  };
+  if (leadId) update.lead_id = leadId;
+
+  await supabaseAdmin.from("conversas_chat").update(update).eq("id", conversaId);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = body.messages ?? [];
     const bairroSlug: string | undefined = body.bairroSlug;
+    const conversaIdIn: string | undefined = body.conversaId;
 
     if (messages.length > 12) {
       return NextResponse.json({ error: "conversa muito longa" }, { status: 400 });
@@ -189,7 +239,10 @@ export async function POST(req: NextRequest) {
       const args = JSON.parse(rawCall.function.arguments);
 
       // Salva o lead e recupera os slugs resolvidos para o matching.
-      const { bairroSlug: bs, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
+      const { leadId, bairroSlug: bs, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
+
+      // Garante um id de conversa para vincular lead e cartões.
+      const conversaId = await garantirConversa(conversaIdIn);
 
       // Tenta encontrar diaristas disponíveis para esse lead.
       const matches = await encontrarDiaristas({
@@ -233,25 +286,50 @@ export async function POST(req: NextRequest) {
       let content = followUp.choices[0].message.content ?? "";
 
       // Com match: anexa um marcador de cartão por diarista (o front renderiza).
+      // O link do perfil carrega ?conversa=ID para rastrear o funil.
       if (matches.length > 0) {
         const frase = bairroNome ? `Atende o ${bairroNome}` : "Atende a sua região";
+        const qs = conversaId ? `?conversa=${conversaId}` : "";
         const cards = matches
-          .map((m) => `[[CARD|${m.nome_completo}|${SITE.url}${m.perfil}|${frase}]]`)
+          .map((m) => `[[CARD|${m.nome_completo}|${SITE.url}${m.perfil}${qs}|${frase}]]`)
           .join("\n");
         content = `${content.trim()}\n\n${cards}`;
+      }
+
+      // Registra a conversa (vinculando o lead).
+      if (conversaId) {
+        await salvarConversa(
+          conversaId,
+          messages as unknown as { role: string; content: string | null }[],
+          content,
+          leadId
+        );
       }
 
       return NextResponse.json({
         role: "assistant",
         content,
         leadSalvo: true,
+        conversaId,
       });
+    }
+
+    // Sem tool call: resposta normal da Cida.
+    const content = choice.message.content ?? "";
+    const conversaId = await garantirConversa(conversaIdIn);
+    if (conversaId) {
+      await salvarConversa(
+        conversaId,
+        messages as unknown as { role: string; content: string | null }[],
+        content
+      );
     }
 
     return NextResponse.json({
       role: "assistant",
-      content: choice.message.content,
+      content,
       leadSalvo: false,
+      conversaId,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro interno.";

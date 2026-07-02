@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 export interface DiaristaAdmin {
@@ -96,12 +97,20 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
           </p>
           <h1 className="mt-1 font-display text-3xl font-extrabold">Diaristas cadastradas</h1>
         </div>
-        <button
-          onClick={sair}
-          className="rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/60 transition-colors hover:border-red-300 hover:text-red-500"
-        >
-          Sair
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/conversas"
+            className="rounded-full border border-brand-light px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand hover:text-paper"
+          >
+            Conversas →
+          </Link>
+          <button
+            onClick={sair}
+            className="rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/60 transition-colors hover:border-red-300 hover:text-red-500"
+          >
+            Sair
+          </button>
+        </div>
       </div>
 
       {/* Filtro por plano */}

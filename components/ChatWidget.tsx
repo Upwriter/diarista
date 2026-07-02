@@ -102,6 +102,7 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
   const [messages, setMessages] = useState<Msg[]>([FIRST_MSG]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [conversaId, setConversaId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -141,10 +142,12 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           bairroSlug,
+          conversaId,
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      if (data.conversaId) setConversaId(data.conversaId);
       setMessages((prev) => [...prev, { role: "assistant", content: data.content }]);
     } catch {
       setMessages((prev) => [

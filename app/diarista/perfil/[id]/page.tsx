@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { CIDADE } from "@/lib/bairros";
+import RegistrarCliquePerfil from "@/components/RegistrarCliquePerfil";
 
 // Esta página NUNCA deve ser indexada por buscadores.
 export const metadata: Metadata = {
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ conversa?: string }>;
+};
 
 // Extrai nomes de forma segura das relações aninhadas do Supabase.
 function extrairNomes(relacao: unknown, chave: string): string[] {
@@ -33,8 +37,9 @@ function extrairNomes(relacao: unknown, chave: string): string[] {
   return nomes;
 }
 
-export default async function PerfilPublico({ params }: Props) {
+export default async function PerfilPublico({ params, searchParams }: Props) {
   const { id } = await params;
+  const { conversa } = await searchParams;
 
   // Seleciona SOMENTE campos públicos. Nunca: cpf, valores, faixas de preço.
   const { data } = await supabaseAdmin
@@ -60,8 +65,13 @@ export default async function PerfilPublico({ params }: Props) {
   const bairros = extrairNomes(data.diarista_bairros, "bairros");
   const cidade = (data.cidade as string) || CIDADE;
 
+  const conversaId = typeof conversa === "string" && conversa.trim() ? conversa : null;
+  const whatsappHref =
+    `/api/whatsapp/${data.id}?origem=perfil` + (conversaId ? `&conversa=${conversaId}` : "");
+
   return (
     <section className="mx-auto max-w-2xl px-5 py-12">
+      {conversaId && <RegistrarCliquePerfil diaristaId={data.id as string} conversaId={conversaId} />}
       {/* Cabeçalho: foto + nome */}
       <div className="flex flex-col items-center text-center">
         <div className="grid h-28 w-28 place-items-center overflow-hidden rounded-full bg-brand-light ring-4 ring-white shadow-sm">
@@ -139,7 +149,7 @@ export default async function PerfilPublico({ params }: Props) {
       {/* CTA WhatsApp — número NÃO aparece no HTML; vai pela rota de rastreamento */}
       <div className="sticky bottom-4 mt-10">
         <a
-          href={`/api/whatsapp/${data.id}?origem=perfil`}
+          href={whatsappHref}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-coral px-6 py-4 text-base font-bold text-white shadow-lg transition-colors hover:bg-coral-dark"
         >
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
