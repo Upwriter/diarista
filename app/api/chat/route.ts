@@ -1,6 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { encontrarDiaristas } from "@/lib/matching";
+import { SITE } from "@/lib/site";
 
 export const runtime = "nodejs";
 
@@ -10,11 +12,11 @@ Você é experiente e sagaz sobre o mundo da limpeza doméstica: entende bem de 
 
 IMPORTANTE: você é ATENDENTE, não diarista. NUNCA diga que é especialista em limpeza, profissional de limpeza, nem que vai executar o serviço. Se perguntarem se você mesma faz a limpeza, responda com gentileza que você é a atendente que ajuda a encontrar a diarista certa da região.
 
-Seu objetivo é coletar: (1) o tipo de serviço (limpeza de casa, lava louça, limpa janelas, passa roupa, faxineira/limpeza pesada, limpeza pós-obra ou cozinheira), (2) a frequência desejada (avulsa, semanal ou quinzenal), (3) o bairro em São Paulo, e (4) o nome e o WhatsApp de contato da pessoa. Faça uma pergunta de cada vez.
+Seu objetivo é coletar: (1) o tipo de serviço (limpeza de casa, lava louça, limpa janelas, passa roupa, faxineira/limpeza pesada, limpeza pós-obra ou cozinheira), (2) a frequência desejada (avulsa, semanal ou quinzenal), (3) o tipo de imóvel (casa térrea, sobrado, apartamento ou escritório), (4) o bairro em São Paulo, e (5) o nome e o WhatsApp de contato da pessoa. Faça uma pergunta de cada vez. Pergunte o tipo de imóvel de forma natural, por exemplo: "É pra uma casa, apartamento ou escritório?".
 
 NUNCA prometa 'a melhor diarista' nem garanta qualidade, preço ou resultado — fale sempre em 'profissionais disponíveis na sua região'. Deixe claro, se perguntarem, que a negociação de valores e detalhes é feita diretamente com a profissional, e que o Diarista Perto de Mim apenas faz a conexão. Não invente diaristas específicas.
 
-Assim que tiver os quatro dados, chame a função salvar_lead. Depois de salvar, agradeça e diga que, por enquanto, o contato será encaminhado pela nossa equipe pelo WhatsApp e que a pessoa também pode falar direto com a gente no WhatsApp (11) 92163-0305.`;
+Assim que tiver todos os dados, chame a função salvar_lead. Depois de salvar, siga fielmente as instruções que vierem no resultado da função para montar sua resposta final.`;
 
 const SALVAR_LEAD_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   type: "function",
@@ -28,35 +30,66 @@ const SALVAR_LEAD_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
         whatsapp:   { type: "string", description: "WhatsApp do cliente com DDD." },
         servico:    { type: "string", description: "Tipo de serviço desejado." },
         frequencia: { type: "string", description: "Frequência desejada: avulsa, semanal ou quinzenal." },
+        imovel:     { type: "string", description: "Tipo de imóvel: casa térrea, sobrado, apartamento ou escritório." },
         bairro:     { type: "string", description: "Bairro em São Paulo onde o serviço será realizado." },
         detalhes:   { type: "string", description: "Informações adicionais relevantes mencionadas pelo cliente." },
       },
-      required: ["nome", "whatsapp", "servico", "frequencia", "bairro"],
+      required: ["nome", "whatsapp", "servico", "frequencia", "imovel", "bairro"],
     },
   },
 };
 
+function normalizar(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+// Converte o texto livre do serviço em um dos slugs do banco.
+function mapearServicoSlug(texto: string): string | undefined {
+  const t = normalizar(texto);
+  if (/(pos.?obra|obra|reforma|entulho)/.test(t)) return "limpeza-pos-obra";
+  if (/(passa|passadeira|roupa)/.test(t)) return "passadeira";
+  if (/(cozinh|cozinheira|comida|almoco)/.test(t)) return "cozinheira";
+  if (/(faxin|pesad|profunda)/.test(t)) return "faxineira";
+  if (/(diarista|limpeza|faxina leve|casa|geral|janela|louca)/.test(t)) return "diarista";
+  return undefined;
+}
+
+// Converte o texto livre do imóvel em um dos slugs do banco.
+function mapearImovelSlug(texto: string): string | undefined {
+  const t = normalizar(texto);
+  if (/(apart|apto|ap\b|kit|studio|stdio|flat)/.test(t)) return "apartamento";
+  if (/sobrado/.test(t)) return "sobrado";
+  if (/(escrit|comercial|sala|loja|empresa)/.test(t)) return "escritorio";
+  if (/(terrea|terreo|casa)/.test(t)) return "casa-terrea";
+  return undefined;
+}
+
 async function salvarLead(
-  args: { nome: string; whatsapp: string; servico: string; frequencia: string; bairro: string; detalhes?: string },
-  bairroSlug?: string
-) {
+  args: {
+    nome: string; whatsapp: string; servico: string; frequencia: string;
+    imovel: string; bairro: string; detalhes?: string;
+  },
+  bairroSlugCtx?: string
+): Promise<{ bairroSlug?: string; servicoSlug?: string; imovelSlug?: string }> {
+  // Bairro: prioriza o slug do contexto (página do bairro); senão busca pelo nome.
   const { data: bairroRow } = await supabaseAdmin
     .from("bairros")
-    .select("id")
-    .or(`slug.eq.${bairroSlug ?? ""},nome.ilike.${args.bairro}`)
+    .select("id, slug")
+    .or(`slug.eq.${bairroSlugCtx ?? ""},nome.ilike.${args.bairro}`)
     .limit(1)
     .maybeSingle();
 
-  const { data: servicoRow } = await supabaseAdmin
-    .from("servicos")
-    .select("id")
-    .ilike("nome", `%${args.servico}%`)
-    .limit(1)
-    .maybeSingle();
+  const servicoSlug = mapearServicoSlug(args.servico);
+  const imovelSlug = mapearImovelSlug(args.imovel);
+
+  const { data: servicoRow } = servicoSlug
+    ? await supabaseAdmin.from("servicos").select("id").eq("slug", servicoSlug).maybeSingle()
+    : { data: null };
 
   const detalhesCompleto = [
     `Serviço: ${args.servico}`,
     `Frequência: ${args.frequencia}`,
+    `Imóvel: ${args.imovel}`,
     `Bairro informado: ${args.bairro}`,
     args.detalhes ?? "",
   ]
@@ -69,10 +102,12 @@ async function salvarLead(
     bairro_id:  bairroRow?.id ?? null,
     servico_id: servicoRow?.id ?? null,
     detalhes:   detalhesCompleto,
-    origem:     bairroSlug ?? "chatbot",
+    origem:     bairroSlugCtx ?? "chatbot",
   });
 
   if (error) throw new Error(`Erro ao salvar lead: ${error.message}`);
+
+  return { bairroSlug: bairroRow?.slug ?? undefined, servicoSlug, imovelSlug };
 }
 
 export async function POST(req: NextRequest) {
@@ -106,12 +141,39 @@ export async function POST(req: NextRequest) {
       };
       const args = JSON.parse(rawCall.function.arguments);
 
-      await salvarLead(args, bairroSlug);
+      // Salva o lead e recupera os slugs resolvidos para o matching.
+      const { bairroSlug: bs, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
+
+      // Tenta encontrar diaristas disponíveis para esse lead.
+      const matches = await encontrarDiaristas({
+        bairroSlug: bs,
+        servicoSlug,
+        imovelSlug,
+      });
+
+      // Monta a instrução de resposta conforme houve ou não match.
+      let toolContent: string;
+      if (matches.length > 0) {
+        const lista = matches
+          .map((m) => `- ${m.nome_completo}: ${SITE.url}${m.perfil}`)
+          .join("\n");
+        toolContent =
+          `Lead salvo com sucesso. Encontramos profissionais disponíveis na região do cliente. ` +
+          `Responda de forma calorosa apresentando estas "profissionais disponíveis na sua região" ` +
+          `(NUNCA diga "as melhores" nem prometa qualidade). Liste cada uma pelo nome com o link ` +
+          `completo do perfil exatamente como está abaixo. Diga que a pessoa pode abrir o perfil e ` +
+          `chamar a profissional no WhatsApp por lá. NÃO informe telefone diretamente.\n\n${lista}`;
+      } else {
+        toolContent =
+          `Lead salvo com sucesso, mas no momento não encontramos profissionais disponíveis para ` +
+          `essa combinação de serviço, imóvel e bairro. Agradeça com carinho, diga que nossa equipe ` +
+          `vai ajudar a encontrar uma profissional da região e informe o WhatsApp (11) 92163-0305.`;
+      }
 
       const followUp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.5,
-        max_tokens: 300,
+        max_tokens: 400,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages,
@@ -119,7 +181,7 @@ export async function POST(req: NextRequest) {
           {
             role: "tool",
             tool_call_id: rawCall.id,
-            content: "Lead salvo com sucesso.",
+            content: toolContent,
           },
         ],
       });
