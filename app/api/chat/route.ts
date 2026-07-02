@@ -162,48 +162,58 @@ async function salvarLead(
 interface MsgChat { autor: "lead" | "cida"; texto: string; horario: string }
 
 // Garante um id de conversa: reusa o recebido ou cria uma linha nova.
+// Nunca lança — o rastreamento não pode derrubar o chat.
 async function garantirConversa(conversaId?: string): Promise<string | undefined> {
   if (conversaId) return conversaId;
-  const { data } = await supabaseAdmin
-    .from("conversas_chat")
-    .insert({ mensagens: [] })
-    .select("id")
-    .single();
-  return data?.id ?? undefined;
+  try {
+    const { data } = await supabaseAdmin
+      .from("conversas_chat")
+      .insert({ mensagens: [] })
+      .select("id")
+      .single();
+    return data?.id ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // Salva o histórico completo da conversa e atualiza a última atividade.
 // Preserva os horários das mensagens já registradas antes.
+// Nunca lança — falha de rastreamento não pode derrubar o chat.
 async function salvarConversa(
   conversaId: string,
   messages: { role: string; content: string | null }[],
   assistantContent: string,
   leadId?: string
 ) {
-  const { data: atual } = await supabaseAdmin
-    .from("conversas_chat")
-    .select("mensagens")
-    .eq("id", conversaId)
-    .maybeSingle();
-  const anteriores: MsgChat[] = Array.isArray(atual?.mensagens) ? atual!.mensagens : [];
+  try {
+    const { data: atual } = await supabaseAdmin
+      .from("conversas_chat")
+      .select("mensagens")
+      .eq("id", conversaId)
+      .maybeSingle();
+    const anteriores: MsgChat[] = Array.isArray(atual?.mensagens) ? atual!.mensagens : [];
 
-  const agora = new Date().toISOString();
-  const todas = [...messages, { role: "assistant", content: assistantContent }];
-  const mensagens: MsgChat[] = todas
-    .filter((m) => typeof m.content === "string" && m.content.trim() !== "")
-    .map((m, i) => ({
-      autor: m.role === "user" ? "lead" : "cida",
-      texto: m.content as string,
-      horario: anteriores[i]?.horario ?? agora,
-    }));
+    const agora = new Date().toISOString();
+    const todas = [...messages, { role: "assistant", content: assistantContent }];
+    const mensagens: MsgChat[] = todas
+      .filter((m) => typeof m.content === "string" && m.content.trim() !== "")
+      .map((m, i) => ({
+        autor: m.role === "user" ? "lead" : "cida",
+        texto: m.content as string,
+        horario: anteriores[i]?.horario ?? agora,
+      }));
 
-  const update: Record<string, unknown> = {
-    mensagens,
-    ultima_atividade_em: agora,
-  };
-  if (leadId) update.lead_id = leadId;
+    const update: Record<string, unknown> = {
+      mensagens,
+      ultima_atividade_em: agora,
+    };
+    if (leadId) update.lead_id = leadId;
 
-  await supabaseAdmin.from("conversas_chat").update(update).eq("id", conversaId);
+    await supabaseAdmin.from("conversas_chat").update(update).eq("id", conversaId);
+  } catch {
+    // silencioso — o importante é responder ao usuário
+  }
 }
 
 export async function POST(req: NextRequest) {
