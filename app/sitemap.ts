@@ -1,15 +1,34 @@
 import type { MetadataRoute } from "next";
 import { BAIRROS, ZONAS, urlBairro, urlZona, HUB_CIDADE_PATH } from "@/lib/bairros";
 import { SITE } from "@/lib/site";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const agora = new Date();
 
   const fixas: MetadataRoute.Sitemap = [
     { url: SITE.url, lastModified: agora, changeFrequency: "weekly", priority: 1 },
     { url: `${SITE.url}${HUB_CIDADE_PATH}`, lastModified: agora, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE.url}/blog`, lastModified: agora, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE.url}/sou-diarista`, lastModified: agora, changeFrequency: "monthly", priority: 0.6 },
   ];
+
+  // Posts publicados do blog.
+  let paginasBlog: MetadataRoute.Sitemap = [];
+  try {
+    const { data } = await supabaseAdmin
+      .from("posts_blog")
+      .select("slug, data_publicacao, atualizado_em")
+      .eq("status", "publicado");
+    paginasBlog = (data ?? []).map((p) => ({
+      url: `${SITE.url}/blog/${p.slug}`,
+      lastModified: p.atualizado_em ? new Date(p.atualizado_em) : agora,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    }));
+  } catch {
+    paginasBlog = [];
+  }
 
   const paginasZona: MetadataRoute.Sitemap = ZONAS.map((z) => ({
     url: `${SITE.url}${urlZona(z.slug)}`,
@@ -25,5 +44,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  return [...fixas, ...paginasZona, ...paginasBairro];
+  return [...fixas, ...paginasZona, ...paginasBairro, ...paginasBlog];
 }

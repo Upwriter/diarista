@@ -36,3 +36,71 @@ body {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Tipografia do conteúdo de post do blog (HTML colado do gerador) */
+.post-conteudo {
+  color: theme("colors.ink");
+  line-height: 1.75;
+}
+.post-conteudo > * + * {
+  margin-top: 1.1rem;
+}
+.post-conteudo h2 {
+  font-family: theme("fontFamily.display");
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-top: 2.2rem;
+}
+.post-conteudo h3 {
+  font-family: theme("fontFamily.display");
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-top: 1.8rem;
+}
+.post-conteudo h4 {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 1.4rem;
+}
+.post-conteudo a {
+  color: theme("colors.brand.DEFAULT");
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.post-conteudo ul,
+.post-conteudo ol {
+  padding-left: 1.4rem;
+}
+.post-conteudo ul { list-style: disc; }
+.post-conteudo ol { list-style: decimal; }
+.post-conteudo li + li { margin-top: 0.4rem; }
+.post-conteudo img {
+  border-radius: 0.9rem;
+  height: auto;
+  max-width: 100%;
+}
+.post-conteudo figure { margin: 1.6rem 0; }
+.post-conteudo figcaption {
+  font-size: 0.85rem;
+  color: theme("colors.ink");
+  opacity: 0.55;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+.post-conteudo blockquote {
+  border-left: 4px solid theme("colors.brand.light");
+  padding-left: 1rem;
+  font-style: italic;
+  opacity: 0.8;
+}
+.post-conteudo table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.post-conteudo th,
+.post-conteudo td {
+  border: 1px solid theme("colors.brand.light");
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
