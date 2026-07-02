@@ -16,7 +16,7 @@ export default function SobreNos() {
         Sobre o Diarista Perto de Mim
       </h1>
 
-      <div className="mt-8 space-y-5 text-lg leading-relaxed text-ink/70">
+      <div className="mt-8 space-y-8 text-lg leading-relaxed text-ink/70">
         <p>
           Todo mundo que mora em São Paulo já passou por isso: precisar de uma diarista e não saber
           por onde começar. Pedir indicação em grupo de WhatsApp, esperar resposta, cair em site
@@ -41,6 +41,55 @@ export default function SobreNos() {
           negócio, define seus preços e escolhe como trabalhar. Nosso papel é um só — fazer a ponte,
           e deixar o resto com quem entende do serviço.
         </p>
+      </div>
+
+      {/* Quem está por trás */}
+      <div className="mt-16">
+        <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
+          Quem está por trás
+        </p>
+
+        <div className="mt-6 rounded-2xl border border-brand-light bg-white p-6 sm:p-8">
+          <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:text-left">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/equipe/filipi-padovese.jpg"
+              alt="Filipi Padovese"
+              width={150}
+              height={150}
+              className="h-[150px] w-[150px] shrink-0 rounded-full object-cover ring-4 ring-brand-light"
+            />
+            <div>
+              <h2 className="font-display text-2xl font-bold text-ink">Filipi Padovese</h2>
+              <p className="mt-1 font-semibold text-brand">
+                Criador do Diarista Perto de Mim
+              </p>
+              <p className="mt-4 leading-relaxed text-ink/70">
+                Filipi é especialista em SEO e fundador da Upwriter, agência de otimização para
+                buscadores. A ideia do Diarista Perto de Mim nasceu ao perceber, de perto, a
+                dificuldade de conhecidos para encontrar uma diarista de confiança — e o quanto as
+                próprias diaristas dependiam quase só da indicação boca a boca para conseguir novos
+                trabalhos. Foi daí que surgiu o propósito de criar uma ponte direta entre quem
+                precisa do serviço e quem faz dele sua profissão.
+              </p>
+              <div className="mt-5 flex justify-center sm:justify-start">
+                <a
+                  href="https://www.instagram.com/filipi.pado/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram de Filipi Padovese"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-light text-brand transition-colors hover:bg-coral hover:text-white"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
