@@ -12,6 +12,34 @@ const FIRST_MSG: Msg = {
 
 const WA_FALLBACK = "https://wa.me/5511921630305";
 
+// Transforma URLs em texto puro em links clicáveis (abrem em nova aba).
+// Também aceita markdown [texto](url), extraindo só a URL, por segurança.
+function renderContent(texto: string) {
+  const regex = /\[[^\]]+\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)/g;
+  const partes: React.ReactNode[] = [];
+  let ultimo = 0;
+  let m: RegExpExecArray | null;
+  let chave = 0;
+  while ((m = regex.exec(texto)) !== null) {
+    if (m.index > ultimo) partes.push(texto.slice(ultimo, m.index));
+    const url = m[1] ?? m[2];
+    partes.push(
+      <a
+        key={chave++}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold text-brand underline underline-offset-2 break-all"
+      >
+        {url}
+      </a>
+    );
+    ultimo = m.index + m[0].length;
+  }
+  if (ultimo < texto.length) partes.push(texto.slice(ultimo));
+  return partes;
+}
+
 export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([FIRST_MSG]);
@@ -125,13 +153,13 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  className={`max-w-[82%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                     m.role === "user"
                       ? "rounded-br-sm bg-brand text-paper"
                       : "rounded-bl-sm bg-brand-light/60 text-ink"
                   }`}
                 >
-                  {m.content}
+                  {m.role === "assistant" ? renderContent(m.content) : m.content}
                 </div>
               </div>
             ))}

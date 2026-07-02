@@ -43,6 +43,53 @@ function normalizar(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
+// Gera um slug a partir de texto livre: minúsculas, sem acentos, hífens.
+function slugify(s: string): string {
+  return normalizar(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+// Resolve o bairro para o matching. Prioriza o slug do contexto (página de
+// bairro). Se não houver, converte o texto digitado pelo cliente em slug e
+// valida contra a tabela `bairros` — por slug ou por nome (sem acento).
+async function resolverBairro(
+  textoUsuario: string,
+  bairroSlugCtx?: string
+): Promise<{ id: string; slug: string } | null> {
+  // 1) Slug vindo do contexto da página.
+  if (bairroSlugCtx) {
+    const { data } = await supabaseAdmin
+      .from("bairros")
+      .select("id, slug")
+      .eq("slug", bairroSlugCtx)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  if (!textoUsuario?.trim()) return null;
+
+  // 2) Tenta pelo slug derivado do texto digitado.
+  const slugTentativa = slugify(textoUsuario);
+  if (slugTentativa) {
+    const { data } = await supabaseAdmin
+      .from("bairros")
+      .select("id, slug")
+      .eq("slug", slugTentativa)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 3) Fallback: compara o nome normalizado contra todos os bairros do banco.
+  const alvo = normalizar(textoUsuario).trim();
+  const { data: todos } = await supabaseAdmin
+    .from("bairros")
+    .select("id, slug, nome");
+  const achado = (todos ?? []).find(
+    (b: { slug: string; nome: string }) =>
+      b.slug === slugTentativa || normalizar(b.nome).trim() === alvo
+  );
+  return achado ? { id: achado.id, slug: achado.slug } : null;
+}
+
 // Converte o texto livre do serviço em um dos slugs do banco.
 function mapearServicoSlug(texto: string): string | undefined {
   const t = normalizar(texto);
@@ -71,13 +118,8 @@ async function salvarLead(
   },
   bairroSlugCtx?: string
 ): Promise<{ bairroSlug?: string; servicoSlug?: string; imovelSlug?: string }> {
-  // Bairro: prioriza o slug do contexto (página do bairro); senão busca pelo nome.
-  const { data: bairroRow } = await supabaseAdmin
-    .from("bairros")
-    .select("id, slug")
-    .or(`slug.eq.${bairroSlugCtx ?? ""},nome.ilike.${args.bairro}`)
-    .limit(1)
-    .maybeSingle();
+  // Bairro: prioriza o slug do contexto; senão resolve pelo texto digitado.
+  const bairroRow = await resolverBairro(args.bairro, bairroSlugCtx);
 
   const servicoSlug = mapearServicoSlug(args.servico);
   const imovelSlug = mapearImovelSlug(args.imovel);
@@ -160,9 +202,11 @@ export async function POST(req: NextRequest) {
         toolContent =
           `Lead salvo com sucesso. Encontramos profissionais disponíveis na região do cliente. ` +
           `Responda de forma calorosa apresentando estas "profissionais disponíveis na sua região" ` +
-          `(NUNCA diga "as melhores" nem prometa qualidade). Liste cada uma pelo nome com o link ` +
-          `completo do perfil exatamente como está abaixo. Diga que a pessoa pode abrir o perfil e ` +
-          `chamar a profissional no WhatsApp por lá. NÃO informe telefone diretamente.\n\n${lista}`;
+          `(NUNCA diga "as melhores" nem prometa qualidade). Liste cada uma pelo nome e, em seguida, ` +
+          `a URL COMPLETA do perfil em TEXTO PURO exatamente como está abaixo (comece com https:// e ` +
+          `NÃO use markdown, colchetes, parênteses ou texto âncora — cole a URL crua). Diga que a ` +
+          `pessoa pode abrir o perfil e chamar a profissional no WhatsApp por lá. NÃO informe ` +
+          `telefone diretamente.\n\n${lista}`;
       } else {
         toolContent =
           `Lead salvo com sucesso, mas no momento não encontramos profissionais disponíveis para ` +
