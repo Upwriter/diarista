@@ -99,7 +99,7 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/admin/blog"
+            href="/redator"
             className="rounded-full border border-brand-light px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand hover:text-paper"
           >
             Blog →

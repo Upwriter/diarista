@@ -54,7 +54,7 @@ export default function BlogForm({ inicial }: { inicial: PostForm }) {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/admin/blog/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/redator/upload", { method: "POST", body: fd });
       const json = await res.json();
       if (!json.ok) throw new Error(json.erro || "Erro no upload.");
       set("imagem_capa_url", json.url);
@@ -72,7 +72,7 @@ export default function BlogForm({ inicial }: { inicial: PostForm }) {
     if (!form.conteudo_html.trim()) { setErro("Cole o conteúdo HTML."); return null; }
     setSalvando(true);
     try {
-      const res = await fetch("/api/admin/blog", {
+      const res = await fetch("/api/redator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
@@ -94,7 +94,7 @@ export default function BlogForm({ inicial }: { inicial: PostForm }) {
 
   async function salvarEVoltar() {
     const slug = await salvar();
-    if (slug) router.push("/admin/blog");
+    if (slug) router.push("/redator");
   }
 
   async function previsualizar() {
@@ -111,7 +111,7 @@ export default function BlogForm({ inicial }: { inicial: PostForm }) {
         <h1 className="font-display text-3xl font-extrabold">
           {inicial.id ? "Editar artigo" : "Novo artigo"}
         </h1>
-        <Link href="/admin/blog" className="text-sm font-semibold text-ink/50 hover:text-ink">
+        <Link href="/redator" className="text-sm font-semibold text-ink/50 hover:text-ink">
           ← Voltar
         </Link>
       </div>

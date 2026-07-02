@@ -58,7 +58,7 @@ export default function AdminBlogLista({ posts }: { posts: PostAdmin[] }) {
           <Link href="/admin" className="rounded-full border border-brand-light px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand hover:text-paper">
             ← Admin
           </Link>
-          <Link href="/admin/blog/novo" className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-coral-dark">
+          <Link href="/redator/novo" className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-coral-dark">
             + Novo artigo
           </Link>
         </div>
@@ -91,7 +91,7 @@ export default function AdminBlogLista({ posts }: { posts: PostAdmin[] }) {
                   <td className="px-4 py-3 text-ink/70">{formatarData(p.criadoEm)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-3">
-                      <Link href={`/admin/blog/${p.id}/editar`} className="font-semibold text-brand hover:underline">
+                      <Link href={`/redator/${p.id}/editar`} className="font-semibold text-brand hover:underline">
                         Editar
                       </Link>
                       <button
