@@ -2,8 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+
+// O Supabase retorna relações aninhadas como objeto único (não array)
+// quando é FK N→1. Usamos `unknown` e normalizamos manualmente abaixo.
+interface PerfilRaw {
+  id: string;
+  nome_completo: string;
+  whatsapp: string;
+  whatsapp2: string | null;
+  cidade: string;
+  plano: string;
+  atende_todos_bairros: boolean;
+  diarista_bairros: unknown;
+  diarista_servicos: unknown;
+  diarista_imoveis: unknown;
+}
 
 interface Perfil {
   id: string;
@@ -13,9 +27,46 @@ interface Perfil {
   cidade: string;
   plano: string;
   atende_todos_bairros: boolean;
-  diarista_bairros: { bairros: { nome: string }[] }[];
-  diarista_servicos: { servicos: { nome: string }[] }[];
-  diarista_imoveis: { imoveis: { nome: string }[] }[];
+  bairros: string[];
+  servicos: string[];
+  imoveis: string[];
+}
+
+// Extrai nomes de forma segura de qualquer estrutura que o Supabase retornar.
+// Suporta: [{bairros:{nome}}, ...] ou [{bairros:[{nome}]}, ...] ou qualquer variação.
+function extrairNomes(relacao: unknown, chave: string): string[] {
+  if (!Array.isArray(relacao)) return [];
+  const nomes: string[] = [];
+  for (const item of relacao) {
+    if (!item || typeof item !== "object") continue;
+    const val = (item as Record<string, unknown>)[chave];
+    if (!val) continue;
+    if (Array.isArray(val)) {
+      for (const v of val) {
+        if (v && typeof v === "object" && typeof (v as Record<string,unknown>).nome === "string") {
+          nomes.push((v as Record<string,unknown>).nome as string);
+        }
+      }
+    } else if (typeof val === "object" && typeof (val as Record<string,unknown>).nome === "string") {
+      nomes.push((val as Record<string,unknown>).nome as string);
+    }
+  }
+  return nomes;
+}
+
+function normalizar(raw: PerfilRaw): Perfil {
+  return {
+    id:                   raw.id,
+    nome_completo:        raw.nome_completo,
+    whatsapp:             raw.whatsapp,
+    whatsapp2:            raw.whatsapp2,
+    cidade:               raw.cidade,
+    plano:                raw.plano,
+    atende_todos_bairros: raw.atende_todos_bairros,
+    bairros:  extrairNomes(raw.diarista_bairros,  "bairros"),
+    servicos: extrairNomes(raw.diarista_servicos, "servicos"),
+    imoveis:  extrairNomes(raw.diarista_imoveis,  "imoveis"),
+  };
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
@@ -47,7 +98,7 @@ export default function Painel() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace("/entrar"); return; }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("diaristas")
         .select(`
           id, nome_completo, whatsapp, whatsapp2, cidade, plano, atende_todos_bairros,
@@ -58,10 +109,10 @@ export default function Painel() {
         .eq("user_id", user.id)
         .single();
 
-      if (!data) { router.replace("/entrar"); return; }
-      setPerfil(data as unknown as Perfil);
+      if (error || !data) { router.replace("/entrar"); return; }
 
-      // Conta leads recebidos
+      setPerfil(normalizar(data as unknown as PerfilRaw));
+
       const { count } = await supabase
         .from("cliques_whatsapp")
         .select("id", { count: "exact", head: true })
@@ -89,13 +140,9 @@ export default function Painel() {
   if (!perfil) return null;
 
   const primeiroNome = perfil.nome_completo.split(" ")[0];
-  const bairros = perfil.diarista_bairros.flatMap((b) => b.bairros.map((x) => x.nome));
-  const servicos = perfil.diarista_servicos.flatMap((s) => s.servicos.map((x) => x.nome));
-  const imoveis = perfil.diarista_imoveis.flatMap((i) => i.imoveis.map((x) => x.nome));
 
   return (
     <section className="mx-auto max-w-2xl px-5 py-12">
-      {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-widest text-brand">
@@ -113,7 +160,6 @@ export default function Painel() {
         </button>
       </div>
 
-      {/* Leads */}
       <div className="mt-6 rounded-2xl bg-brand p-6 text-paper">
         <p className="text-sm font-semibold uppercase tracking-widest text-paper/60">
           Contatos recebidos
@@ -124,7 +170,6 @@ export default function Painel() {
         </p>
       </div>
 
-      {/* Ações em breve */}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button
           disabled
@@ -142,7 +187,6 @@ export default function Painel() {
         </button>
       </div>
 
-      {/* Dados do perfil */}
       <div className="mt-6 space-y-4">
         <Secao titulo="Seus dados">
           <dl className="space-y-2 text-sm">
@@ -181,17 +225,17 @@ export default function Painel() {
 
         <Secao titulo="Serviços que você oferece">
           <div className="flex flex-wrap gap-2">
-            {servicos.length ? servicos.map((s) => <Badge key={s}>{s}</Badge>) : (
-              <p className="text-sm text-ink/40">Nenhum serviço cadastrado.</p>
-            )}
+            {perfil.servicos.length > 0
+              ? perfil.servicos.map((s) => <Badge key={s}>{s}</Badge>)
+              : <p className="text-sm text-ink/40">Nenhum serviço cadastrado.</p>}
           </div>
         </Secao>
 
         <Secao titulo="Tipos de imóvel">
           <div className="flex flex-wrap gap-2">
-            {imoveis.length ? imoveis.map((i) => <Badge key={i}>{i}</Badge>) : (
-              <p className="text-sm text-ink/40">Nenhum imóvel cadastrado.</p>
-            )}
+            {perfil.imoveis.length > 0
+              ? perfil.imoveis.map((i) => <Badge key={i}>{i}</Badge>)
+              : <p className="text-sm text-ink/40">Nenhum imóvel cadastrado.</p>}
           </div>
         </Secao>
 
@@ -202,9 +246,9 @@ export default function Painel() {
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {bairros.length ? bairros.map((b) => <Badge key={b}>{b}</Badge>) : (
-                <p className="text-sm text-ink/40">Nenhum bairro cadastrado.</p>
-              )}
+              {perfil.bairros.length > 0
+                ? perfil.bairros.map((b) => <Badge key={b}>{b}</Badge>)
+                : <p className="text-sm text-ink/40">Nenhum bairro cadastrado.</p>}
             </div>
           )}
         </Secao>
