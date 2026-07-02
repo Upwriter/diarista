@@ -30,9 +30,6 @@ export default function Home() {
           }}
         />
         <div className="relative mx-auto max-w-content px-5 pb-16 pt-16 sm:pt-24">
-          <p className="inline-flex items-center gap-2 rounded-full bg-brand-light px-3.5 py-1.5 text-sm font-semibold text-brand-dark">
-            <span aria-hidden>📍</span> São Paulo · todos os bairros
-          </p>
           <h1 className="mt-6 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
             A diarista certa,
             <br />
