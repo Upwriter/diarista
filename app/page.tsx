@@ -1,9 +1,7 @@
 ﻿import Link from "next/link";
-import { BAIRROS, ZONAS, urlBairro, urlZona, HUB_CIDADE_PATH } from "@/lib/bairros";
+import { HUB_CIDADE_PATH } from "@/lib/bairros";
 import CtaWhatsApp from "@/components/CtaWhatsApp";
 import HowItWorks from "@/components/HowItWorks";
-
-const POPULARES = ["pinheiros", "moema", "tatuape", "vila-mariana", "santana", "mooca", "itaim-bibi", "perdizes"];
 
 function Check() {
   return (
@@ -14,8 +12,6 @@ function Check() {
 }
 
 export default function Home() {
-  const populares = BAIRROS.filter((b) => POPULARES.includes(b.slug));
-
   return (
     <>
       {/* HERO */}
@@ -49,44 +45,8 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Bairros populares */}
-          <div className="mt-14">
-            <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
-              Bairros mais buscados
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {populares.map((b) => (
-                <Link
-                  key={b.slug}
-                  href={urlBairro(b.slug)}
-                  className="rounded-full bg-white px-4 py-2 text-sm font-medium ring-1 ring-ink/10 transition-colors hover:ring-brand hover:text-brand"
-                >
-                  {b.nome}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Buscar por região */}
-          <div className="mt-8">
-            <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
-              Buscar por região
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2.5">
-              {ZONAS.map((z) => (
-                <Link
-                  key={z.slug}
-                  href={urlZona(z.slug)}
-                  className="rounded-full bg-brand-light px-4 py-2 text-sm font-semibold text-brand-dark transition-colors hover:bg-brand hover:text-paper"
-                >
-                  {z.nome}
-                </Link>
-              ))}
-            </div>
-          </div>
-
           {/* Cidades atendidas */}
-          <div className="mt-8">
+          <div className="mt-14">
             <p className="text-sm font-semibold uppercase tracking-widest text-ink/40">
               Cidades atendidas
             </p>
