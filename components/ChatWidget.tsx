@@ -40,6 +40,63 @@ function renderContent(texto: string) {
   return partes;
 }
 
+// Cartão clicável de uma diarista indicada.
+function CardDiarista({ nome, url, frase }: { nome: string; url: string; frase: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block rounded-xl border border-brand-light bg-white p-3 shadow-sm transition-colors hover:border-brand"
+    >
+      <p className="font-display text-base font-bold text-ink">{nome}</p>
+      {frase && <p className="mt-0.5 text-xs text-ink/60">{frase}</p>}
+      <p className="mt-2 text-xs font-semibold text-brand">
+        Ver perfil e chamar no WhatsApp →
+      </p>
+    </a>
+  );
+}
+
+// Renderiza a mensagem da Cida: separa marcadores [[CARD|nome|url|frase]] em
+// cartões e mantém o texto normal (com links clicáveis) intacto.
+function renderAssistant(texto: string): React.ReactNode {
+  const cardRegex = /\[\[CARD\|([^|]*)\|([^|]*)\|([^\]]*)\]\]/g;
+  if (!cardRegex.test(texto)) return renderContent(texto);
+  cardRegex.lastIndex = 0;
+
+  const nodes: React.ReactNode[] = [];
+  let ultimo = 0;
+  let m: RegExpExecArray | null;
+  let chave = 0;
+  while ((m = cardRegex.exec(texto)) !== null) {
+    if (m.index > ultimo) {
+      const chunk = texto.slice(ultimo, m.index).trim();
+      if (chunk) {
+        nodes.push(
+          <span key={`t${chave}`} className="block whitespace-pre-wrap">
+            {renderContent(chunk)}
+          </span>
+        );
+      }
+    }
+    nodes.push(<CardDiarista key={`c${chave}`} nome={m[1]} url={m[2]} frase={m[3]} />);
+    chave++;
+    ultimo = m.index + m[0].length;
+  }
+  if (ultimo < texto.length) {
+    const chunk = texto.slice(ultimo).trim();
+    if (chunk) {
+      nodes.push(
+        <span key={`t${chave}`} className="block whitespace-pre-wrap">
+          {renderContent(chunk)}
+        </span>
+      );
+    }
+  }
+  return <div className="space-y-2">{nodes}</div>;
+}
+
 export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([FIRST_MSG]);
@@ -159,7 +216,7 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
                       : "rounded-bl-sm bg-brand-light/60 text-ink"
                   }`}
                 >
-                  {m.role === "assistant" ? renderContent(m.content) : m.content}
+                  {m.role === "assistant" ? renderAssistant(m.content) : m.content}
                 </div>
               </div>
             ))}

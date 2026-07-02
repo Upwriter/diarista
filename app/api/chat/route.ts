@@ -54,12 +54,12 @@ function slugify(s: string): string {
 async function resolverBairro(
   textoUsuario: string,
   bairroSlugCtx?: string
-): Promise<{ id: string; slug: string } | null> {
+): Promise<{ id: string; slug: string; nome: string } | null> {
   // 1) Slug vindo do contexto da página.
   if (bairroSlugCtx) {
     const { data } = await supabaseAdmin
       .from("bairros")
-      .select("id, slug")
+      .select("id, slug, nome")
       .eq("slug", bairroSlugCtx)
       .maybeSingle();
     if (data) return data;
@@ -72,7 +72,7 @@ async function resolverBairro(
   if (slugTentativa) {
     const { data } = await supabaseAdmin
       .from("bairros")
-      .select("id, slug")
+      .select("id, slug, nome")
       .eq("slug", slugTentativa)
       .maybeSingle();
     if (data) return data;
@@ -87,7 +87,7 @@ async function resolverBairro(
     (b: { slug: string; nome: string }) =>
       b.slug === slugTentativa || normalizar(b.nome).trim() === alvo
   );
-  return achado ? { id: achado.id, slug: achado.slug } : null;
+  return achado ? { id: achado.id, slug: achado.slug, nome: achado.nome } : null;
 }
 
 // Converte o texto livre do serviço em um dos slugs do banco.
@@ -117,7 +117,7 @@ async function salvarLead(
     imovel: string; bairro: string; detalhes?: string;
   },
   bairroSlugCtx?: string
-): Promise<{ bairroSlug?: string; servicoSlug?: string; imovelSlug?: string }> {
+): Promise<{ bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
   // Bairro: prioriza o slug do contexto; senão resolve pelo texto digitado.
   const bairroRow = await resolverBairro(args.bairro, bairroSlugCtx);
 
@@ -149,7 +149,12 @@ async function salvarLead(
 
   if (error) throw new Error(`Erro ao salvar lead: ${error.message}`);
 
-  return { bairroSlug: bairroRow?.slug ?? undefined, servicoSlug, imovelSlug };
+  return {
+    bairroSlug: bairroRow?.slug ?? undefined,
+    bairroNome: bairroRow?.nome ?? undefined,
+    servicoSlug,
+    imovelSlug,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -184,7 +189,7 @@ export async function POST(req: NextRequest) {
       const args = JSON.parse(rawCall.function.arguments);
 
       // Salva o lead e recupera os slugs resolvidos para o matching.
-      const { bairroSlug: bs, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
+      const { bairroSlug: bs, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
 
       // Tenta encontrar diaristas disponíveis para esse lead.
       const matches = await encontrarDiaristas({
@@ -196,17 +201,12 @@ export async function POST(req: NextRequest) {
       // Monta a instrução de resposta conforme houve ou não match.
       let toolContent: string;
       if (matches.length > 0) {
-        const lista = matches
-          .map((m) => `- ${m.nome_completo}: ${SITE.url}${m.perfil}`)
-          .join("\n");
         toolContent =
           `Lead salvo com sucesso. Encontramos profissionais disponíveis na região do cliente. ` +
-          `Responda de forma calorosa apresentando estas "profissionais disponíveis na sua região" ` +
-          `(NUNCA diga "as melhores" nem prometa qualidade). Liste cada uma pelo nome e, em seguida, ` +
-          `a URL COMPLETA do perfil em TEXTO PURO exatamente como está abaixo (comece com https:// e ` +
-          `NÃO use markdown, colchetes, parênteses ou texto âncora — cole a URL crua). Diga que a ` +
-          `pessoa pode abrir o perfil e chamar a profissional no WhatsApp por lá. NÃO informe ` +
-          `telefone diretamente.\n\n${lista}`;
+          `Escreva APENAS uma frase de abertura curta e calorosa, como "Encontrei estas profissionais ` +
+          `disponíveis na sua região:" (NUNCA diga "as melhores" nem prometa qualidade/preço). ` +
+          `NÃO liste nomes, NÃO escreva links e NÃO adicione mais nada depois da frase — os cartões ` +
+          `com as profissionais serão exibidos automaticamente abaixo da sua frase.`;
       } else {
         toolContent =
           `Lead salvo com sucesso, mas no momento não encontramos profissionais disponíveis para ` +
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
       const followUp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.5,
-        max_tokens: 400,
+        max_tokens: 300,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages,
@@ -230,9 +230,20 @@ export async function POST(req: NextRequest) {
         ],
       });
 
+      let content = followUp.choices[0].message.content ?? "";
+
+      // Com match: anexa um marcador de cartão por diarista (o front renderiza).
+      if (matches.length > 0) {
+        const frase = bairroNome ? `Atende o ${bairroNome}` : "Atende a sua região";
+        const cards = matches
+          .map((m) => `[[CARD|${m.nome_completo}|${SITE.url}${m.perfil}|${frase}]]`)
+          .join("\n");
+        content = `${content.trim()}\n\n${cards}`;
+      }
+
       return NextResponse.json({
         role: "assistant",
-        content: followUp.choices[0].message.content,
+        content,
         leadSalvo: true,
       });
     }
