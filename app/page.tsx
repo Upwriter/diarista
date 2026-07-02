@@ -31,9 +31,9 @@ export default function Home() {
         />
         <div className="relative mx-auto max-w-content px-5 pb-16 pt-16 sm:pt-24">
           <h1 className="mt-6 max-w-3xl font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-            A diarista certa,
+            Encontre diaristas
             <br />
-            <span className="text-brand">no seu bairro.</span>
+            <span className="text-brand">perto de você.</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg text-ink/70">
             Conte o que você precisa e conectamos você, sem custo, a diaristas que atendem a
