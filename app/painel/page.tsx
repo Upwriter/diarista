@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import GerenciarFotos from "@/components/GerenciarFotos";
+import Link from "next/link";
 
 // O Supabase retorna relações aninhadas como objeto único (não array)
 // quando é FK N→1. Usamos `unknown` e normalizamos manualmente abaixo.
@@ -14,6 +16,8 @@ interface PerfilRaw {
   cidade: string;
   plano: string;
   atende_todos_bairros: boolean;
+  foto_url: string | null;
+  galeria: string[] | null;
   diarista_bairros: unknown;
   diarista_servicos: unknown;
   diarista_imoveis: unknown;
@@ -27,6 +31,8 @@ interface Perfil {
   cidade: string;
   plano: string;
   atende_todos_bairros: boolean;
+  foto_url: string | null;
+  galeria: string[];
   bairros: string[];
   servicos: string[];
   imoveis: string[];
@@ -63,6 +69,8 @@ function normalizar(raw: PerfilRaw): Perfil {
     cidade:               raw.cidade,
     plano:                raw.plano,
     atende_todos_bairros: raw.atende_todos_bairros,
+    foto_url:             raw.foto_url ?? null,
+    galeria:              Array.isArray(raw.galeria) ? raw.galeria : [],
     bairros:  extrairNomes(raw.diarista_bairros,  "bairros"),
     servicos: extrairNomes(raw.diarista_servicos, "servicos"),
     imoveis:  extrairNomes(raw.diarista_imoveis,  "imoveis"),
@@ -102,6 +110,7 @@ export default function Painel() {
         .from("diaristas")
         .select(`
           id, nome_completo, whatsapp, whatsapp2, cidade, plano, atende_todos_bairros,
+          foto_url, galeria,
           diarista_bairros ( bairros ( nome ) ),
           diarista_servicos ( servicos ( nome ) ),
           diarista_imoveis ( imoveis ( nome ) )
@@ -171,13 +180,13 @@ export default function Painel() {
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
-        <button
-          disabled
-          className="flex cursor-not-allowed flex-col items-start gap-1 rounded-2xl border border-brand-light bg-white p-4 opacity-60"
+        <Link
+          href={`/diarista/perfil/${perfil.id}`}
+          className="flex flex-col items-start gap-1 rounded-2xl border border-brand-light bg-white p-4 transition-colors hover:border-brand"
         >
-          <span className="text-sm font-bold text-ink">Editar perfil</span>
-          <span className="text-xs text-ink/40">Em breve</span>
-        </button>
+          <span className="text-sm font-bold text-ink">Ver meu perfil público</span>
+          <span className="text-xs text-ink/40">Como os clientes te veem</span>
+        </Link>
         <button
           disabled
           className="flex cursor-not-allowed flex-col items-start gap-1 rounded-2xl border border-brand-light bg-white p-4 opacity-60"
@@ -188,6 +197,12 @@ export default function Painel() {
       </div>
 
       <div className="mt-6 space-y-4">
+        <GerenciarFotos
+          diaristaId={perfil.id}
+          fotoInicial={perfil.foto_url}
+          galeriaInicial={perfil.galeria}
+        />
+
         <Secao titulo="Seus dados">
           <dl className="space-y-2 text-sm">
             <div className="flex gap-2">
