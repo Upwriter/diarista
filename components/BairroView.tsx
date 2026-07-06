@@ -139,7 +139,7 @@ export default function BairroView({ cidadeSlug, bairroSlug }: { cidadeSlug: str
         </div>
       </section>
 
-      <HowItWorks />
+      <HowItWorks cidade={cidade.nome} />
       <Faq bairro={bairro.nome} cidade={cidade.nome} />
 
       {vizinhos.length > 0 && (

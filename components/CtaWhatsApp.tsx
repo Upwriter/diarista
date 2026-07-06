@@ -5,18 +5,23 @@ import { SITE } from "@/lib/site";
 // pelo chatbot. É um link simples — não carrega JavaScript.
 export default function CtaWhatsApp({
   bairro,
+  cidade,
   variant = "primary",
   className = "",
   children,
 }: {
   bairro?: string;
+  cidade?: string;
   variant?: "primary" | "ghost";
   className?: string;
   children?: React.ReactNode;
 }) {
-  const texto = bairro
-    ? `Olá! Preciso de uma diarista no bairro ${bairro}, em São Paulo.`
-    : "Olá! Preciso de uma diarista em São Paulo.";
+  const local =
+    bairro && cidade ? `no bairro ${bairro}, em ${cidade}`
+    : bairro ? `no bairro ${bairro}`
+    : cidade ? `em ${cidade}`
+    : "na minha região";
+  const texto = `Olá! Preciso de uma diarista ${local}.`;
   const href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(texto)}`;
 
   const base =

@@ -33,7 +33,7 @@ export default function Home() {
           </h1>
           <p className="mt-6 max-w-xl text-lg text-ink/70">
             Conte o que você precisa e conectamos você, sem custo, a diaristas que atendem a
-            sua região de São Paulo. Você combina tudo direto com a profissional.
+            sua região. Você combina tudo direto com a profissional.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <CtaWhatsApp>Encontrar uma diarista</CtaWhatsApp>
@@ -77,7 +77,7 @@ export default function Home() {
             É diarista? Escolha seu plano.
           </h2>
           <p className="mt-3 max-w-xl text-ink/60">
-            Cadastre-se de graça e apareça para clientes que procuram diarista no seu bairro em São Paulo.
+            Cadastre-se de graça e apareça para clientes que procuram diarista no seu bairro.
           </p>
 
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:max-w-3xl">

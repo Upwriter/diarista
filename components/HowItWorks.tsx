@@ -1,22 +1,27 @@
-﻿const PASSOS = [
-  {
-    titulo: "Diga o que precisa",
-    texto:
-      "Conte o tipo de limpeza, o tamanho do imóvel e o dia. Leva menos de um minuto e não custa nada.",
-  },
-  {
-    titulo: "Receba profissionais do seu bairro",
-    texto:
-      "Mostramos diaristas que atendem na sua região de São Paulo, sem você ter que sair procurando.",
-  },
-  {
-    titulo: "Combine direto com a diarista",
-    texto:
-      "Você fala diretamente com a profissional pelo WhatsApp e acerta valor, dia e detalhes com ela.",
-  },
-];
+﻿// `cidade` é opcional: nas páginas de uma cidade específica ela é passada
+// (ex.: "Guarujá"); na home e textos gerais fica ausente e usamos linguagem
+// genérica ("na sua região"), já que o site atende mais de uma cidade.
+export default function HowItWorks({ cidade }: { cidade?: string }) {
+  const regiao = cidade ? `na sua região de ${cidade}` : "na sua região";
 
-export default function HowItWorks() {
+  const PASSOS = [
+    {
+      titulo: "Diga o que precisa",
+      texto:
+        "Conte o tipo de limpeza, o tamanho do imóvel e o dia. Leva menos de um minuto e não custa nada.",
+    },
+    {
+      titulo: "Receba profissionais do seu bairro",
+      texto:
+        `Mostramos diaristas que atendem ${regiao}, sem você ter que sair procurando.`,
+    },
+    {
+      titulo: "Combine direto com a diarista",
+      texto:
+        "Você fala diretamente com a profissional pelo WhatsApp e acerta valor, dia e detalhes com ela.",
+    },
+  ];
+
   return (
     <section id="como-funciona" className="mx-auto max-w-content px-5 py-16 sm:py-20">
       <p className="font-display text-sm font-semibold uppercase tracking-widest text-brand">

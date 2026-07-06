@@ -3,7 +3,7 @@
 export const metadata: Metadata = {
   title: "Sobre nós | Diarista Perto de Mim",
   description:
-    "Conheça o Diarista Perto de Mim: a plataforma que conecta quem precisa de diarista a profissionais que atendem o seu bairro em São Paulo.",
+    "Conheça o Diarista Perto de Mim: a plataforma que conecta quem precisa de diarista a profissionais que atendem o seu bairro.",
 };
 
 export default function SobreNos() {
@@ -19,7 +19,7 @@ export default function SobreNos() {
 
       <div className="mt-8 space-y-8 text-lg leading-relaxed text-ink/70">
         <p>
-          Todo mundo que mora em São Paulo já passou por isso: precisar de uma diarista e não saber
+          Quem já precisou de uma diarista conhece essa história: precisar do serviço e não saber
           por onde começar. Pedir indicação em grupo de WhatsApp, esperar resposta, cair em site
           cheio de cadastro e, no fim, ainda ficar na dúvida se a pessoa atende o seu bairro. A
           gente achou que dava para ser mais simples.

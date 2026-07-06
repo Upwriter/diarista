@@ -73,7 +73,7 @@ export default function HubGuaruja() {
         </div>
       </section>
 
-      <HowItWorks />
+      <HowItWorks cidade={cidade.nome} />
     </>
   );
 }

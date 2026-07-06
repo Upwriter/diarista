@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 export const metadata: Metadata = {
   title: "Blog | Diarista Perto de Mim",
   description:
-    "Dicas sobre limpeza, organização da casa e como contratar diarista em São Paulo.",
+    "Dicas sobre limpeza, organização da casa e como contratar diarista na sua região.",
 };
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export default async function Blog() {
         Blog
       </h1>
       <p className="mt-5 text-lg text-ink/70">
-        Dicas sobre limpeza, organização da casa e como contratar diarista em São Paulo.
+        Dicas sobre limpeza, organização da casa e como contratar diarista na sua região.
       </p>
 
       {posts.length === 0 ? (

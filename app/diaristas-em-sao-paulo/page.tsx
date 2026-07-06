@@ -68,7 +68,7 @@ export default function HubCidade() {
         </div>
       </section>
 
-      <HowItWorks />
+      <HowItWorks cidade={CIDADE} />
     </>
   );
 }

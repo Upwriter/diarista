@@ -82,7 +82,7 @@ export default function ZonaView({ slug }: { slug: string }) {
             agora — a conexão é gratuita.
           </p>
           <div className="mt-8">
-            <CtaWhatsApp>Encontrar uma diarista</CtaWhatsApp>
+            <CtaWhatsApp cidade={CIDADE}>Encontrar uma diarista</CtaWhatsApp>
           </div>
         </div>
       </section>
@@ -106,7 +106,7 @@ export default function ZonaView({ slug }: { slug: string }) {
         </div>
       </section>
 
-      <HowItWorks />
+      <HowItWorks cidade={CIDADE} />
 
       {/* Links para as outras zonas */}
       <section className="mx-auto max-w-content px-5 pb-20">

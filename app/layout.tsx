@@ -24,7 +24,7 @@ const body = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: `${SITE.nome} — Diaristas em São Paulo, no seu bairro`,
+    default: `${SITE.nome} — Diaristas perto de você, no seu bairro`,
     template: `%s | ${SITE.nome}`,
   },
   description: SITE.descricao,
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     siteName: SITE.nome,
     url: SITE.url,
-    title: `${SITE.nome} — Diaristas em São Paulo, no seu bairro`,
+    title: `${SITE.nome} — Diaristas perto de você, no seu bairro`,
     description: SITE.descricao,
   },
   twitter: {
