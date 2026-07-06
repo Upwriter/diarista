@@ -7,12 +7,12 @@ export interface FaqItem {
   resposta: string;
 }
 
-export function faqDoBairro(bairro: string): FaqItem[] {
+export function faqDoBairro(bairro: string, cidade = "São Paulo"): FaqItem[] {
   return [
     {
       pergunta: `Quanto custa uma diarista em ${bairro}?`,
       resposta:
-        `O valor é combinado diretamente entre você e a diarista. Em São Paulo, ` +
+        `O valor é combinado diretamente entre você e a diarista. Em ${cidade}, ` +
         `uma diária costuma variar conforme o tamanho do imóvel, o tipo de limpeza ` +
         `e a frequência. Aqui você não paga nada para ser conectado — a negociação ` +
         `do preço é feita com a profissional.`,
@@ -34,14 +34,14 @@ export function faqDoBairro(bairro: string): FaqItem[] {
       pergunta: `A diarista atende só o bairro ${bairro} ou a região também?`,
       resposta:
         `Muitas profissionais atendem ${bairro} e bairros próximos da mesma ` +
-        `região de São Paulo. Ao entrar em contato, você confirma com a diarista ` +
+        `região de ${cidade}. Ao entrar em contato, você confirma com a diarista ` +
         `se ela atende o seu endereço.`,
     },
   ];
 }
 
-export default function Faq({ bairro }: { bairro: string }) {
-  const itens = faqDoBairro(bairro);
+export default function Faq({ bairro, cidade = "São Paulo" }: { bairro: string; cidade?: string }) {
+  const itens = faqDoBairro(bairro, cidade);
   return (
     <section className="mx-auto max-w-3xl px-5 py-20">
       <h2 className="font-display text-3xl font-bold sm:text-4xl">Perguntas frequentes</h2>

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { BAIRROS, ZONAS, urlBairro, urlZona, HUB_CIDADE_PATH } from "@/lib/bairros";
+import { BAIRROS, ZONAS, CIDADES, urlBairro, urlZona } from "@/lib/bairros";
 import { SITE } from "@/lib/site";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
@@ -8,7 +8,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const fixas: MetadataRoute.Sitemap = [
     { url: SITE.url, lastModified: agora, changeFrequency: "weekly", priority: 1 },
-    { url: `${SITE.url}${HUB_CIDADE_PATH}`, lastModified: agora, changeFrequency: "weekly", priority: 0.9 },
+    ...CIDADES.map((c) => ({
+      url: `${SITE.url}${c.hubPath}`,
+      lastModified: agora,
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    })),
     { url: `${SITE.url}/blog`, lastModified: agora, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE.url}/sou-diarista`, lastModified: agora, changeFrequency: "monthly", priority: 0.6 },
   ];
@@ -38,7 +43,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const paginasBairro: MetadataRoute.Sitemap = BAIRROS.map((b) => ({
-    url: `${SITE.url}${urlBairro(b.slug)}`,
+    url: `${SITE.url}${urlBairro(b.cidadeSlug, b.slug)}`,
     lastModified: agora,
     changeFrequency: "weekly",
     priority: 0.8,

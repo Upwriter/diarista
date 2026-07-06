@@ -96,7 +96,7 @@ export default function ZonaView({ slug }: { slug: string }) {
           {bairros.map((b) => (
             <Link
               key={b.slug}
-              href={urlBairro(b.slug)}
+              href={urlBairro("sao-paulo", b.slug)}
               className="flex items-center justify-between rounded-xl bg-white px-4 py-3 font-medium ring-1 ring-ink/10 transition-colors hover:ring-brand hover:text-brand"
             >
               Diarista em {b.nome}

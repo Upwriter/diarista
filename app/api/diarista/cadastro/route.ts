@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { validarCPF } from "@/lib/cpf";
+import { getCidade } from "@/lib/bairros";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       cpf,
       whatsapp,
       whatsapp2,
-      cidade,
+      cidadeSlug,
       bairros,
       atendeTodosBairros,
       servicos,
@@ -27,13 +28,16 @@ export async function POST(req: NextRequest) {
       imoveis,
     } = body;
 
+    // Resolve a cidade escolhida (para gravação e para filtrar bairros).
+    const cidadeInfo = getCidade(cidadeSlug ?? "sao-paulo");
+
     // ── a) Validação dos campos obrigatórios ──────────────────────────
     if (!email)                         return err("E-mail é obrigatório.");
     if (!senha || senha.length < 6)     return err("A senha precisa ter no mínimo 6 caracteres.");
     if (!nomeCompleto)                  return err("Nome completo é obrigatório.");
     if (!cpf)                           return err("CPF é obrigatório.");
     if (!whatsapp)                      return err("WhatsApp é obrigatório.");
-    if (!cidade)                        return err("Cidade é obrigatória.");
+    if (!cidadeInfo)                    return err("Cidade inválida.");
     if (!servicos?.length)              return err("Selecione pelo menos 1 tipo de serviço.");
     if (!imoveis?.length)               return err("Selecione pelo menos 1 tipo de imóvel.");
     if (!atendeTodosBairros && !bairros?.length)
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
         cpf:                   cpfNumeros,
         whatsapp:              whatsapp.replace(/\D/g, ""),
         ...(whatsapp2 ? { whatsapp2: whatsapp2.replace(/\D/g, "") } : {}),
-        cidade,
+        cidade:                cidadeInfo.nome,
         atende_todos_bairros:  !!atendeTodosBairros,
         plano:                 "free",
         ativo:                 true,
@@ -92,10 +96,13 @@ export async function POST(req: NextRequest) {
     const diaId = diarista.id;
 
     // ── f) Bairros ────────────────────────────────────────────────────
+    // Filtra pela CIDADE + slug, pois bairros de cidades diferentes podem
+    // ter o mesmo slug (ex.: "centro" em São Paulo e em Guarujá).
     if (!atendeTodosBairros && bairros?.length) {
       const { data: bairroRows } = await supabaseAdmin
         .from("bairros")
         .select("id, slug")
+        .eq("cidade", cidadeInfo.cidadeDb)
         .in("slug", bairros);
 
       if (bairroRows?.length) {

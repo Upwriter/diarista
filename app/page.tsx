@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { HUB_CIDADE_PATH } from "@/lib/bairros";
+import { CIDADES } from "@/lib/bairros";
 import CtaWhatsApp from "@/components/CtaWhatsApp";
 import HowItWorks from "@/components/HowItWorks";
 
@@ -51,12 +51,15 @@ export default function Home() {
               Cidades atendidas
             </p>
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <Link
-                href={HUB_CIDADE_PATH}
-                className="inline-flex items-center gap-2 rounded-full bg-brand-light px-4 py-2 text-sm font-semibold text-brand-dark transition-colors hover:bg-brand hover:text-paper"
-              >
-                <span aria-hidden>📍</span> São Paulo
-              </Link>
+              {CIDADES.map((c) => (
+                <Link
+                  key={c.slug}
+                  href={c.hubPath}
+                  className="inline-flex items-center gap-2 rounded-full bg-brand-light px-4 py-2 text-sm font-semibold text-brand-dark transition-colors hover:bg-brand hover:text-paper"
+                >
+                  <span aria-hidden>📍</span> {c.nome}
+                </Link>
+              ))}
             </div>
           </div>
         </div>

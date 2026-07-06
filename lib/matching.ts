@@ -24,7 +24,8 @@ interface Candidata {
 }
 
 interface Params {
-  bairroSlug?: string;
+  // ID do bairro (já identifica a cidade — nunca comparamos por nome).
+  bairroId?: string;
   servicoSlug?: string;
   imovelSlug?: string;
 }
@@ -48,13 +49,14 @@ function porRevezamento(a: Candidata, b: Candidata): number {
 }
 
 export async function encontrarDiaristas(params: Params): Promise<DiaristaMatch[]> {
-  const { bairroSlug, servicoSlug, imovelSlug } = params;
+  const { bairroId, servicoSlug, imovelSlug } = params;
 
-  // ── 1) Resolve slugs -> ids ──────────────────────────────────────────
-  const [servicoId, imovelId, bairroId] = await Promise.all([
+  // ── 1) Resolve slugs de serviço/imóvel -> ids. O bairro já vem como ID
+  //       (identifica a cidade), evitando ambiguidade entre bairros de
+  //       cidades diferentes com o mesmo nome (ex.: "Centro"). ────────────
+  const [servicoId, imovelId] = await Promise.all([
     idPorSlug("servicos", servicoSlug),
     idPorSlug("imoveis", imovelSlug),
-    idPorSlug("bairros", bairroSlug),
   ]);
 
   // Serviço e imóvel são obrigatórios para haver match.

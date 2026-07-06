@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { BAIRROS, ZONAS } from "@/lib/bairros";
+import { CIDADES, ZONAS, bairrosDaCidade, getCidade } from "@/lib/bairros";
 
 // ── Dados estáticos de serviços e imóveis (espelham o banco) ──────────
 const SERVICOS = [
@@ -100,6 +100,7 @@ export default function CadastroForm() {
   const [senha, setSenha] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [whatsapp2, setWhatsapp2] = useState("");
+  const [cidadeSlug, setCidadeSlug] = useState("sao-paulo");
   const [servicosSel, setServicosSel] = useState<string[]>([]);
   // Faixa de preço escolhida por serviço: { [slug]: codigoFaixa }
   const [precosSel, setPrecosSel] = useState<Record<string, string>>({});
@@ -112,6 +113,14 @@ export default function CadastroForm() {
 
   function toggleArr(arr: string[], set: (v: string[]) => void, slug: string) {
     set(arr.includes(slug) ? arr.filter((s) => s !== slug) : [...arr, slug]);
+  }
+
+  // Troca a cidade e zera a seleção de bairros/zona (bairros são por cidade).
+  function trocarCidade(slug: string) {
+    setCidadeSlug(slug);
+    setBairrosSel([]);
+    setZonaFiltro("");
+    setAtendeTodos(false);
   }
 
   // Alterna um serviço e, ao desmarcar, remove a faixa de preço associada.
@@ -186,7 +195,7 @@ export default function CadastroForm() {
           cpf,
           whatsapp: whatsapp.replace(/\D/g, ""),
           ...(whatsapp2 ? { whatsapp2: whatsapp2.replace(/\D/g, "") } : {}),
-          cidade: "São Paulo",
+          cidadeSlug,
           servicos: servicosSel,
           precos: precosSel,
           imoveis: imoveisSel,
@@ -228,9 +237,13 @@ export default function CadastroForm() {
     );
   }
 
-  const bairrosFiltrados = zonaFiltro
-    ? BAIRROS.filter((b) => b.zona === zonaFiltro)
-    : BAIRROS;
+  const cidadeAtual = getCidade(cidadeSlug);
+  const cidadeNome = cidadeAtual?.nome ?? "São Paulo";
+  const temZonas = !!cidadeAtual?.temZonas;
+  const bairrosDaCidadeAtual = bairrosDaCidade(cidadeSlug);
+  const bairrosFiltrados = temZonas && zonaFiltro
+    ? bairrosDaCidadeAtual.filter((b) => b.zona === zonaFiltro)
+    : bairrosDaCidadeAtual;
 
   return (
     <div className="rounded-2xl border border-brand-light bg-white p-6 sm:p-8">
@@ -240,6 +253,20 @@ export default function CadastroForm() {
       {step === 0 && (
         <div className="mt-6 space-y-4">
           <h2 className="font-display text-xl font-bold">Seus dados pessoais</h2>
+          <div>
+            <Label>Em qual cidade você atende?</Label>
+            <div className="flex flex-wrap gap-2">
+              {CIDADES.map((c) => (
+                <CheckPill
+                  key={c.slug}
+                  checked={cidadeSlug === c.slug}
+                  onChange={() => trocarCidade(c.slug)}
+                >
+                  {c.nome}
+                </CheckPill>
+              ))}
+            </div>
+          </div>
           <div>
             <Label>Nome completo</Label>
             <Input
@@ -383,7 +410,7 @@ export default function CadastroForm() {
         <div className="mt-6 space-y-4">
           <h2 className="font-display text-xl font-bold">Onde você atende?</h2>
           <p className="text-sm text-ink/60">
-            Selecione os bairros de São Paulo onde você pode trabalhar.
+            Selecione os bairros de {cidadeNome} onde você pode trabalhar.
           </p>
 
           <label className="flex cursor-pointer items-center gap-3">
@@ -394,31 +421,33 @@ export default function CadastroForm() {
               className="h-4 w-4 rounded border-brand accent-brand"
             />
             <span className="text-sm font-semibold text-ink">
-              Atendo qualquer bairro de São Paulo
+              Atendo qualquer bairro de {cidadeNome}
             </span>
           </label>
 
           {!atendeTodos && (
             <>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setZonaFiltro("")}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${!zonaFiltro ? "bg-brand text-paper" : "bg-brand-light text-brand-dark hover:bg-brand hover:text-paper"}`}
-                >
-                  Todos
-                </button>
-                {ZONAS.map((z) => (
+              {temZonas && (
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={z.slug}
                     type="button"
-                    onClick={() => setZonaFiltro(z.nome)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${zonaFiltro === z.nome ? "bg-brand text-paper" : "bg-brand-light text-brand-dark hover:bg-brand hover:text-paper"}`}
+                    onClick={() => setZonaFiltro("")}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${!zonaFiltro ? "bg-brand text-paper" : "bg-brand-light text-brand-dark hover:bg-brand hover:text-paper"}`}
                   >
-                    {z.nome}
+                    Todos
                   </button>
-                ))}
-              </div>
+                  {ZONAS.map((z) => (
+                    <button
+                      key={z.slug}
+                      type="button"
+                      onClick={() => setZonaFiltro(z.nome)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${zonaFiltro === z.nome ? "bg-brand text-paper" : "bg-brand-light text-brand-dark hover:bg-brand hover:text-paper"}`}
+                    >
+                      {z.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="max-h-56 overflow-y-auto rounded-xl border border-brand-light p-3">
                 <div className="flex flex-wrap gap-2">

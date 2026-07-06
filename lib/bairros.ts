@@ -1,25 +1,52 @@
 // Fonte de verdade dos bairros que viram páginas de SEO.
-// Para adicionar um bairro novo, basta incluir um item aqui e publicar:
-// uma página /diarista/<slug> é gerada automaticamente.
+// Agora com suporte a múltiplas cidades. Para adicionar um bairro, inclua-o
+// na cidade correta abaixo: a página /<cidade>-diarista-<bairro> é gerada
+// automaticamente.
 
 export type ZonaNome = "Zona Oeste" | "Zona Sul" | "Zona Norte" | "Zona Leste" | "Centro";
 
 export interface Bairro {
   nome: string;
   slug: string;
-  zona: ZonaNome;
+  cidadeSlug: string;
+  zona?: ZonaNome; // só São Paulo usa zonas
 }
 
 export interface Zona {
   nome: ZonaNome;
   slug: string;
-  preposicao: string; // "na" ou "no" — para o título soar natural
+  preposicao: string; // "na" ou "no"
 }
 
+export interface Cidade {
+  nome: string;      // exibição, com acento: "São Paulo"
+  slug: string;      // usado nas URLs: "sao-paulo"
+  cidadeDb: string;  // valor gravado na coluna bairros.cidade: "Sao Paulo"
+  uf: string;
+  temZonas: boolean;
+  hubPath: string;   // ex: "/diaristas-em-sao-paulo"
+  preposicao: string; // "em"
+}
+
+// Compat: default de São Paulo (usado por páginas que assumem a capital).
 export const CIDADE = "São Paulo";
 export const UF = "SP";
 
-// As 5 zonas viram páginas próprias: /diarista/zona/<slug>
+export const CIDADES: Cidade[] = [
+  { nome: "São Paulo", slug: "sao-paulo", cidadeDb: "Sao Paulo", uf: "SP", temZonas: true,  hubPath: "/diaristas-em-sao-paulo", preposicao: "em" },
+  { nome: "Guarujá",   slug: "guaruja",   cidadeDb: "Guaruja",   uf: "SP", temZonas: false, hubPath: "/diaristas-em-guaruja",   preposicao: "em" },
+];
+
+// Gera slug a partir do nome (sem acento, hífens). Deve bater com o SQL.
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export const ZONAS: Zona[] = [
   { nome: "Zona Leste", slug: "leste", preposicao: "na" },
   { nome: "Zona Norte", slug: "norte", preposicao: "na" },
@@ -28,8 +55,9 @@ export const ZONAS: Zona[] = [
   { nome: "Centro", slug: "centro", preposicao: "no" },
 ];
 
-export const BAIRROS: Bairro[] = [
-  // ----- Centro
+// ── São Paulo (77 bairros) ────────────────────────────────────────────
+const BAIRROS_SP: Omit<Bairro, "cidadeSlug">[] = [
+  // Centro
   { nome: "Sé", slug: "se", zona: "Centro" },
   { nome: "República", slug: "republica", zona: "Centro" },
   { nome: "Higienópolis", slug: "higienopolis", zona: "Centro" },
@@ -42,8 +70,7 @@ export const BAIRROS: Bairro[] = [
   { nome: "Liberdade", slug: "liberdade", zona: "Centro" },
   { nome: "Santa Cecília", slug: "santa-cecilia", zona: "Centro" },
   { nome: "Campos Elíseos", slug: "campos-eliseos", zona: "Centro" },
-
-  // ----- Zona Oeste
+  // Zona Oeste
   { nome: "Pinheiros", slug: "pinheiros", zona: "Zona Oeste" },
   { nome: "Vila Madalena", slug: "vila-madalena", zona: "Zona Oeste" },
   { nome: "Perdizes", slug: "perdizes", zona: "Zona Oeste" },
@@ -56,8 +83,7 @@ export const BAIRROS: Bairro[] = [
   { nome: "Jaguaré", slug: "jaguare", zona: "Zona Oeste" },
   { nome: "Pompeia", slug: "pompeia", zona: "Zona Oeste" },
   { nome: "Sumaré", slug: "sumare", zona: "Zona Oeste" },
-
-  // ----- Zona Sul
+  // Zona Sul
   { nome: "Jardim Paulista", slug: "jardim-paulista", zona: "Zona Sul" },
   { nome: "Jardim América", slug: "jardim-america", zona: "Zona Sul" },
   { nome: "Jardim Europa", slug: "jardim-europa", zona: "Zona Sul" },
@@ -81,8 +107,7 @@ export const BAIRROS: Bairro[] = [
   { nome: "Cidade Dutra", slug: "cidade-dutra", zona: "Zona Sul" },
   { nome: "Grajaú", slug: "grajau", zona: "Zona Sul" },
   { nome: "Parelheiros", slug: "parelheiros", zona: "Zona Sul" },
-
-  // ----- Zona Leste
+  // Zona Leste
   { nome: "Tatuapé", slug: "tatuape", zona: "Zona Leste" },
   { nome: "Anália Franco", slug: "analia-franco", zona: "Zona Leste" },
   { nome: "Mooca", slug: "mooca", zona: "Zona Leste" },
@@ -98,8 +123,7 @@ export const BAIRROS: Bairro[] = [
   { nome: "Cidade Tiradentes", slug: "cidade-tiradentes", zona: "Zona Leste" },
   { nome: "Sapopemba", slug: "sapopemba", zona: "Zona Leste" },
   { nome: "Vila Prudente", slug: "vila-prudente", zona: "Zona Leste" },
-
-  // ----- Zona Norte
+  // Zona Norte
   { nome: "Santana", slug: "santana", zona: "Zona Norte" },
   { nome: "Tucuruvi", slug: "tucuruvi", zona: "Zona Norte" },
   { nome: "Mandaqui", slug: "mandaqui", zona: "Zona Norte" },
@@ -117,36 +141,70 @@ export const BAIRROS: Bairro[] = [
   { nome: "Perus", slug: "perus", zona: "Zona Norte" },
 ];
 
-// ── Helpers de URL ────────────────────────────────────────────────────
-// Formato das URLs públicas de SEO. Centralizado aqui para manter
-// consistência entre páginas, sitemap e links internos.
-export const HUB_CIDADE_PATH = "/diaristas-em-sao-paulo";
-export const PREFIXO_BAIRRO = "sao-paulo-diarista-";
-export const PREFIXO_ZONA = "sao-paulo-diarista-zona-";
+// ── Guarujá (44 bairros, sem zonas) ───────────────────────────────────
+const BAIRROS_GUARUJA_NOMES = [
+  "Acapulco", "Astúrias", "Baia Branca", "Barreira do João Guarda", "Barra Funda",
+  "Bela Vista", "Cachoeira", "Caiçara", "Camburi", "Centro", "Cidade Atlântica",
+  "Construtores", "Cruz das Almas", "Enseada", "Ferry Boat", "Guaiúba",
+  "Jardim Alvorada", "Jardim Alice", "Jardim Boa Esperança", "Jardim Brasil",
+  "Jardim Enseada", "Jardim Helena Maria", "Jardim Las Palmas", "Jardim Mar e Céu",
+  "Jardim Menina Moça", "Jardim Praiano", "Jardim Progresso", "Jardim Santa Maria",
+  "Jardim São Miguel", "Jardim Virgínia", "Mar Casado", "Morrinhos", "Paecara",
+  "Outeiro", "Perequê", "Pitangueiras", "Pouca Farinha", "Santa Cruz dos Navegantes",
+  "Santa Rosa", "Santo Antônio", "São Manuel", "Sítio Paecara", "Tombo", "Tortugas",
+  "Vicente de Carvalho", "Vila Baiana",
+];
+const BAIRROS_GUARUJA: Omit<Bairro, "cidadeSlug">[] = BAIRROS_GUARUJA_NOMES.map((nome) => ({
+  nome,
+  slug: slugify(nome),
+}));
 
-export function urlBairro(slug: string): string {
-  return `/${PREFIXO_BAIRRO}${slug}`;
+export const BAIRROS: Bairro[] = [
+  ...BAIRROS_SP.map((b) => ({ ...b, cidadeSlug: "sao-paulo" })),
+  ...BAIRROS_GUARUJA.map((b) => ({ ...b, cidadeSlug: "guaruja" })),
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────
+export function getCidade(slug: string): Cidade | undefined {
+  return CIDADES.find((c) => c.slug === slug);
 }
 
-export function urlZona(slug: string): string {
-  return `/${PREFIXO_ZONA}${slug}`;
-}
-
-export function getBairro(slug: string): Bairro | undefined {
-  return BAIRROS.find((b) => b.slug === slug);
+export function getBairro(cidadeSlug: string, bairroSlug: string): Bairro | undefined {
+  return BAIRROS.find((b) => b.cidadeSlug === cidadeSlug && b.slug === bairroSlug);
 }
 
 export function getZona(slug: string): Zona | undefined {
   return ZONAS.find((z) => z.slug === slug);
 }
 
-export function bairrosDaZona(zona: ZonaNome): Bairro[] {
-  return BAIRROS.filter((b) => b.zona === zona);
+export function bairrosDaCidade(cidadeSlug: string): Bairro[] {
+  return BAIRROS.filter((b) => b.cidadeSlug === cidadeSlug);
 }
 
-// Bairros vizinhos (mesma zona) — usados nos links internos da página de bairro
-export function bairrosVizinhos(slug: string, limite = 8): Bairro[] {
-  const atual = getBairro(slug);
+// Bairros de uma zona (apenas São Paulo).
+export function bairrosDaZona(zona: ZonaNome): Bairro[] {
+  return BAIRROS.filter((b) => b.cidadeSlug === "sao-paulo" && b.zona === zona);
+}
+
+// Bairros vizinhos: mesma cidade (e mesma zona, quando houver).
+export function bairrosVizinhos(cidadeSlug: string, bairroSlug: string, limite = 8): Bairro[] {
+  const atual = getBairro(cidadeSlug, bairroSlug);
   if (!atual) return [];
-  return BAIRROS.filter((b) => b.zona === atual.zona && b.slug !== slug).slice(0, limite);
+  if (atual.cidadeSlug === "sao-paulo" && atual.zona) {
+    return BAIRROS.filter(
+      (b) => b.cidadeSlug === cidadeSlug && b.zona === atual.zona && b.slug !== bairroSlug
+    ).slice(0, limite);
+  }
+  return BAIRROS.filter(
+    (b) => b.cidadeSlug === cidadeSlug && b.slug !== bairroSlug
+  ).slice(0, limite);
+}
+
+// ── URLs ──────────────────────────────────────────────────────────────
+export function urlBairro(cidadeSlug: string, bairroSlug: string): string {
+  return `/${cidadeSlug}-diarista-${bairroSlug}`;
+}
+
+export function urlZona(zonaSlug: string): string {
+  return `/sao-paulo-diarista-zona-${zonaSlug}`;
 }

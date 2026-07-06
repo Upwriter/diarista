@@ -55,14 +55,17 @@ async function resolverBairro(
   textoUsuario: string,
   bairroSlugCtx?: string
 ): Promise<{ id: string; slug: string; nome: string } | null> {
+  // Obs.: usamos limit(1) (e não maybeSingle) porque agora podem existir
+  // bairros com o mesmo slug em cidades diferentes (ex.: "centro").
+
   // 1) Slug vindo do contexto da página.
   if (bairroSlugCtx) {
     const { data } = await supabaseAdmin
       .from("bairros")
       .select("id, slug, nome")
       .eq("slug", bairroSlugCtx)
-      .maybeSingle();
-    if (data) return data;
+      .limit(1);
+    if (data && data[0]) return data[0];
   }
 
   if (!textoUsuario?.trim()) return null;
@@ -74,8 +77,8 @@ async function resolverBairro(
       .from("bairros")
       .select("id, slug, nome")
       .eq("slug", slugTentativa)
-      .maybeSingle();
-    if (data) return data;
+      .limit(1);
+    if (data && data[0]) return data[0];
   }
 
   // 3) Fallback: compara o nome normalizado contra todos os bairros do banco.
@@ -117,7 +120,7 @@ async function salvarLead(
     imovel: string; bairro: string; detalhes?: string;
   },
   bairroSlugCtx?: string
-): Promise<{ leadId?: string; bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
+): Promise<{ leadId?: string; bairroId?: string; bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
   // Bairro: prioriza o slug do contexto; senão resolve pelo texto digitado.
   const bairroRow = await resolverBairro(args.bairro, bairroSlugCtx);
 
@@ -151,6 +154,7 @@ async function salvarLead(
 
   return {
     leadId:     leadRow?.id ?? undefined,
+    bairroId:   bairroRow?.id ?? undefined,
     bairroSlug: bairroRow?.slug ?? undefined,
     bairroNome: bairroRow?.nome ?? undefined,
     servicoSlug,
@@ -248,15 +252,16 @@ export async function POST(req: NextRequest) {
       };
       const args = JSON.parse(rawCall.function.arguments);
 
-      // Salva o lead e recupera os slugs resolvidos para o matching.
-      const { leadId, bairroSlug: bs, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
+      // Salva o lead e recupera os dados resolvidos para o matching.
+      const { leadId, bairroId, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
 
       // Garante um id de conversa para vincular lead e cartões.
       const conversaId = await garantirConversa(conversaIdIn);
 
       // Tenta encontrar diaristas disponíveis para esse lead.
+      // Passamos o ID do bairro (que já identifica a cidade), nunca o nome.
       const matches = await encontrarDiaristas({
-        bairroSlug: bs,
+        bairroId,
         servicoSlug,
         imovelSlug,
       });
