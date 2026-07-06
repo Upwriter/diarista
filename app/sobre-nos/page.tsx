@@ -3,7 +3,7 @@
 export const metadata: Metadata = {
   title: "Sobre nós | Diarista Perto de Mim",
   description:
-    "Conheça o Diarista Perto de Mim: a plataforma que conecta quem precisa de diarista em São Paulo às melhores profissionais do bairro.",
+    "Conheça o Diarista Perto de Mim: a plataforma que conecta quem precisa de diarista a profissionais que atendem o seu bairro em São Paulo.",
 };
 
 export default function SobreNos() {
@@ -67,7 +67,7 @@ export default function SobreNos() {
             <p className="mt-4 leading-relaxed text-ink/70">
               Filipi é especialista em SEO e fundador da Upwriter, agência de otimização para
               buscadores. A ideia do Diarista Perto de Mim nasceu ao perceber, de perto, a
-              dificuldade de conhecidos para encontrar uma diarista de confiança — e o quanto as
+              dificuldade de conhecidos para encontrar uma diarista — e o quanto as
               próprias diaristas dependiam quase só da indicação boca a boca para conseguir novos
               trabalhos. Foi daí que surgiu o propósito de criar uma ponte direta entre quem
               precisa do serviço e quem faz dele sua profissão.

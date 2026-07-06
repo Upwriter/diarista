@@ -122,7 +122,7 @@ export default function BairroView({ cidadeSlug, bairroSlug }: { cidadeSlug: str
         </h2>
         <div className="mt-5 space-y-4 text-ink/75">
           <p>
-            Encontrar uma diarista de confiança em {bairro.nome} não precisa ser complicado. Em vez
+            Encontrar uma diarista que atende {bairro.nome} não precisa ser complicado. Em vez
             de procurar em vários grupos e sites, você conta uma vez o que precisa e mostramos
             profissionais que já atendem {bairro.nome} e outros bairros de {regiaoTexto}.
           </p>

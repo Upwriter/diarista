@@ -2,7 +2,7 @@
 import CadastroForm from "@/components/CadastroForm";
 
 export const metadata: Metadata = {
-  title: "Sou diarista — receba clientes do seu bairro em São Paulo",
+  title: "Sou diarista — apareça para clientes do seu bairro em São Paulo",
   description:
     "Cadastre-se gratuitamente e comece a receber contatos de clientes que precisam de diarista na sua região de São Paulo.",
 };
@@ -14,7 +14,7 @@ export default function SouDiarista() {
         Para profissionais
       </p>
       <h1 className="mt-3 font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-        Receba clientes do seu bairro
+        Apareça para clientes do seu bairro
       </h1>
       <p className="mt-4 text-lg text-ink/70">
         Cadastre-se de graça e comece a receber contatos de quem precisa de diarista na sua

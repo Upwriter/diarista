@@ -77,7 +77,7 @@ export default function Home() {
             É diarista? Escolha seu plano.
           </h2>
           <p className="mt-3 max-w-xl text-ink/60">
-            Cadastre-se de graça e comece a receber clientes do seu bairro em São Paulo.
+            Cadastre-se de graça e apareça para clientes que procuram diarista no seu bairro em São Paulo.
           </p>
 
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:max-w-3xl">
@@ -134,7 +134,7 @@ export default function Home() {
                   "Bairros ilimitados na cidade",
                   "Até 3 tipos de serviço (extras por R$ 4,90 cada)",
                   "Leads ilimitados",
-                  "Selo de profissional em destaque",
+                  "Perfil em destaque nas buscas",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5">
                     <Check />

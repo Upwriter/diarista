@@ -18,7 +18,7 @@ export function faqDoBairro(bairro: string, cidade = "São Paulo"): FaqItem[] {
         `do preço é feita com a profissional.`,
     },
     {
-      pergunta: `Como encontrar uma diarista de confiança em ${bairro}?`,
+      pergunta: `Como encontrar uma diarista que atende ${bairro}?`,
       resposta:
         `Conte o que você precisa e mostramos profissionais que atendem em ${bairro} ` +
         `e na região. Você conversa direto com a diarista pelo WhatsApp antes de ` +
