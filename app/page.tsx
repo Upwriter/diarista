@@ -134,7 +134,7 @@ export default function Home() {
                   "Bairros ilimitados na cidade",
                   "Até 3 tipos de serviço (extras por R$ 4,90 cada)",
                   "Leads ilimitados",
-                  "Perfil em destaque nas buscas",
+                  "Prioridade nas indicações aos clientes",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-2.5">
                     <Check />
