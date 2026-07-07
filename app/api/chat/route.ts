@@ -3,20 +3,66 @@ import OpenAI from "openai";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { encontrarDiaristas } from "@/lib/matching";
 import { SITE } from "@/lib/site";
+import { CIDADES } from "@/lib/bairros";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `Você é Cida, a atendente virtual do Diarista Perto de Mim, plataforma que conecta pessoas a diaristas autônomas em São Paulo. Apresente-se apenas como "Cida". Seja calorosa, simpática e próxima — como uma boa atendente que genuinamente gosta de ajudar.
+interface CidadeAtendida { db: string; nome: string; slug: string }
+
+// Lista as cidades atendidas a partir dos DADOS (valores distintos de
+// bairros.cidade). Assim, ao cadastrar uma nova cidade no banco, a Cida passa
+// a oferecê-la automaticamente. Faz o "de-para" para o nome de exibição via
+// CIDADES quando disponível; se falhar, cai no que já conhecemos.
+async function listarCidades(): Promise<CidadeAtendida[]> {
+  try {
+    const { data } = await supabaseAdmin.from("bairros").select("cidade");
+    const valores = new Set(
+      (data ?? []).map((r) => (r as { cidade: string }).cidade).filter(Boolean)
+    );
+    if (valores.size) {
+      return [...valores].map((db) => {
+        const c = CIDADES.find((x) => x.cidadeDb === db);
+        return { db, nome: c?.nome ?? db, slug: c?.slug ?? "" };
+      });
+    }
+  } catch {
+    // ignora — usa o fallback abaixo
+  }
+  return CIDADES.map((c) => ({ db: c.cidadeDb, nome: c.nome, slug: c.slug }));
+}
+
+// Formata "A", "A e B" ou "A, B e C".
+function listarNomes(cidades: CidadeAtendida[]): string {
+  const nomes = cidades.map((c) => c.nome);
+  if (nomes.length <= 1) return nomes[0] ?? "";
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
+// Casa o texto livre do lead com uma das cidades atendidas → valor do banco.
+function mapearCidadeDb(texto: string, cidades: CidadeAtendida[]): CidadeAtendida | undefined {
+  const t = normalizar(texto);
+  return cidades.find(
+    (c) =>
+      (c.slug && t.includes(c.slug.replace(/-/g, " "))) ||
+      t.includes(normalizar(c.nome)) ||
+      t.includes(normalizar(c.db))
+  );
+}
+
+function montarSystemPrompt(cidades: CidadeAtendida[]): string {
+  const lista = listarNomes(cidades) || "as cidades atendidas";
+  return `Você é Cida, a atendente virtual do Diarista Perto de Mim, plataforma que conecta pessoas a diaristas autônomas nas cidades atendidas pela plataforma (atualmente ${lista}). Apresente-se apenas como "Cida". Seja calorosa, simpática e próxima — como uma boa atendente que genuinamente gosta de ajudar.
 
 Você é experiente e sagaz sobre o mundo da limpeza doméstica: entende bem de limpeza de casa, lava louça, limpa janelas, passar roupa, faxina pesada, limpeza pós-obra e cozinha. Use esse conhecimento para conduzir a conversa com naturalidade, interpretar o que a pessoa precisa mesmo quando ela não sabe explicar direito (ex.: se a pessoa diz que acabou uma reforma, entenda que é limpeza pós-obra; se diz que a casa está muito suja, considere que pode ser faxina pesada) e faça perguntas inteligentes e úteis para chegar no serviço certo.
 
 IMPORTANTE: você é ATENDENTE, não diarista. NUNCA diga que é especialista em limpeza, profissional de limpeza, nem que vai executar o serviço. Se perguntarem se você mesma faz a limpeza, responda com gentileza que você é a atendente que ajuda a encontrar uma diarista que atende a sua região.
 
-Seu objetivo é coletar: (1) o tipo de serviço (limpeza de casa, lava louça, limpa janelas, passa roupa, faxineira/limpeza pesada, limpeza pós-obra ou cozinheira), (2) a frequência desejada (avulsa, semanal ou quinzenal), (3) o tipo de imóvel (casa térrea, sobrado, apartamento ou escritório), (4) o bairro em São Paulo, e (5) o nome e o WhatsApp de contato da pessoa. Faça uma pergunta de cada vez. Pergunte o tipo de imóvel de forma natural, por exemplo: "É pra uma casa, apartamento ou escritório?".
+Seu objetivo é coletar, nesta ordem: (1) a CIDADE onde a pessoa precisa da diarista — pergunte isso PRIMEIRO, oferecendo as cidades atendidas (${lista}); (2) o tipo de serviço (limpeza de casa, lava louça, limpa janelas, passa roupa, faxineira/limpeza pesada, limpeza pós-obra ou cozinheira); (3) a frequência desejada (avulsa, semanal ou quinzenal); (4) o tipo de imóvel (casa térrea, sobrado, apartamento ou escritório); (5) o bairro DENTRO da cidade informada; e (6) o nome e o WhatsApp de contato. Faça uma pergunta de cada vez, mas seja eficiente: se a pessoa já informar vários dados de uma vez, aproveite todos e não repita perguntas; peça o nome e o WhatsApp juntos, numa única pergunta. Considere sempre a cidade informada nas etapas seguintes — o bairro precisa ser um bairro dessa cidade. Se a pessoa mencionar uma cidade que não está na lista de cidades atendidas, explique com gentileza que por enquanto atendemos apenas ${lista}.
 
 NUNCA prometa 'a melhor diarista' nem garanta qualidade, preço ou resultado — fale sempre em 'profissionais disponíveis na sua região'. Deixe claro, se perguntarem, que a negociação de valores e detalhes é feita diretamente com a profissional, e que o Diarista Perto de Mim apenas faz a conexão. Não invente diaristas específicas.
 
 Assim que tiver todos os dados, chame a função salvar_lead. Depois de salvar, siga fielmente as instruções que vierem no resultado da função para montar sua resposta final.`;
+}
 
 const SALVAR_LEAD_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
   type: "function",
@@ -26,15 +72,16 @@ const SALVAR_LEAD_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
     parameters: {
       type: "object",
       properties: {
+        cidade:     { type: "string", description: "Cidade onde o serviço será realizado (uma das cidades atendidas pela plataforma)." },
         nome:       { type: "string", description: "Nome do cliente." },
         whatsapp:   { type: "string", description: "WhatsApp do cliente com DDD." },
         servico:    { type: "string", description: "Tipo de serviço desejado." },
         frequencia: { type: "string", description: "Frequência desejada: avulsa, semanal ou quinzenal." },
         imovel:     { type: "string", description: "Tipo de imóvel: casa térrea, sobrado, apartamento ou escritório." },
-        bairro:     { type: "string", description: "Bairro em São Paulo onde o serviço será realizado." },
+        bairro:     { type: "string", description: "Bairro (dentro da cidade informada) onde o serviço será realizado." },
         detalhes:   { type: "string", description: "Informações adicionais relevantes mencionadas pelo cliente." },
       },
-      required: ["nome", "whatsapp", "servico", "frequencia", "imovel", "bairro"],
+      required: ["cidade", "nome", "whatsapp", "servico", "frequencia", "imovel", "bairro"],
     },
   },
 };
@@ -48,24 +95,26 @@ function slugify(s: string): string {
   return normalizar(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-// Resolve o bairro para o matching. Prioriza o slug do contexto (página de
-// bairro). Se não houver, converte o texto digitado pelo cliente em slug e
-// valida contra a tabela `bairros` — por slug ou por nome (sem acento).
+// Resolve o bairro para o matching, SEMPRE dentro da cidade informada
+// (quando conhecida). Isso elimina a ambiguidade de bairros com o mesmo nome
+// em cidades diferentes (ex.: "Centro" em São Paulo e em Guarujá).
 async function resolverBairro(
   textoUsuario: string,
+  cidadeDb?: string,
   bairroSlugCtx?: string
 ): Promise<{ id: string; slug: string; nome: string } | null> {
-  // Obs.: usamos limit(1) (e não maybeSingle) porque agora podem existir
-  // bairros com o mesmo slug em cidades diferentes (ex.: "centro").
+  // Busca um bairro por slug, restrito à cidade quando ela é conhecida.
+  async function porSlug(slug: string) {
+    let q = supabaseAdmin.from("bairros").select("id, slug, nome").eq("slug", slug);
+    if (cidadeDb) q = q.eq("cidade", cidadeDb);
+    const { data } = await q.limit(1);
+    return data?.[0] ?? null;
+  }
 
   // 1) Slug vindo do contexto da página.
   if (bairroSlugCtx) {
-    const { data } = await supabaseAdmin
-      .from("bairros")
-      .select("id, slug, nome")
-      .eq("slug", bairroSlugCtx)
-      .limit(1);
-    if (data && data[0]) return data[0];
+    const achado = await porSlug(bairroSlugCtx);
+    if (achado) return achado;
   }
 
   if (!textoUsuario?.trim()) return null;
@@ -73,19 +122,15 @@ async function resolverBairro(
   // 2) Tenta pelo slug derivado do texto digitado.
   const slugTentativa = slugify(textoUsuario);
   if (slugTentativa) {
-    const { data } = await supabaseAdmin
-      .from("bairros")
-      .select("id, slug, nome")
-      .eq("slug", slugTentativa)
-      .limit(1);
-    if (data && data[0]) return data[0];
+    const achado = await porSlug(slugTentativa);
+    if (achado) return achado;
   }
 
-  // 3) Fallback: compara o nome normalizado contra todos os bairros do banco.
+  // 3) Fallback: compara o nome normalizado contra os bairros da cidade.
   const alvo = normalizar(textoUsuario).trim();
-  const { data: todos } = await supabaseAdmin
-    .from("bairros")
-    .select("id, slug, nome");
+  let q = supabaseAdmin.from("bairros").select("id, slug, nome");
+  if (cidadeDb) q = q.eq("cidade", cidadeDb);
+  const { data: todos } = await q;
   const achado = (todos ?? []).find(
     (b: { slug: string; nome: string }) =>
       b.slug === slugTentativa || normalizar(b.nome).trim() === alvo
@@ -116,13 +161,17 @@ function mapearImovelSlug(texto: string): string | undefined {
 
 async function salvarLead(
   args: {
-    nome: string; whatsapp: string; servico: string; frequencia: string;
+    cidade: string; nome: string; whatsapp: string; servico: string; frequencia: string;
     imovel: string; bairro: string; detalhes?: string;
   },
+  cidades: CidadeAtendida[],
   bairroSlugCtx?: string
 ): Promise<{ leadId?: string; bairroId?: string; bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
-  // Bairro: prioriza o slug do contexto; senão resolve pelo texto digitado.
-  const bairroRow = await resolverBairro(args.bairro, bairroSlugCtx);
+  // Resolve a cidade informada para o valor do banco (ex.: "Guaruja").
+  const cidadeInfo = mapearCidadeDb(args.cidade ?? "", cidades);
+
+  // Bairro: resolvido SEMPRE dentro da cidade informada (elimina ambiguidade).
+  const bairroRow = await resolverBairro(args.bairro, cidadeInfo?.db, bairroSlugCtx);
 
   const servicoSlug = mapearServicoSlug(args.servico);
   const imovelSlug = mapearImovelSlug(args.imovel);
@@ -132,6 +181,7 @@ async function salvarLead(
     : { data: null };
 
   const detalhesCompleto = [
+    `Cidade: ${cidadeInfo?.nome ?? args.cidade}`,
     `Serviço: ${args.servico}`,
     `Frequência: ${args.frequencia}`,
     `Imóvel: ${args.imovel}`,
@@ -231,13 +281,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "conversa muito longa" }, { status: 400 });
     }
 
+    // Cidades atendidas (dos dados) → prompt dinâmico e resolução de cidade.
+    const cidades = await listarCidades();
+    const systemPrompt = montarSystemPrompt(cidades);
+
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.5,
       max_tokens: 300,
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+      messages: [{ role: "system", content: systemPrompt }, ...messages],
       tools: [SALVAR_LEAD_TOOL],
       tool_choice: "auto",
     });
@@ -253,7 +307,7 @@ export async function POST(req: NextRequest) {
       const args = JSON.parse(rawCall.function.arguments);
 
       // Salva o lead e recupera os dados resolvidos para o matching.
-      const { leadId, bairroId, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, bairroSlug);
+      const { leadId, bairroId, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, cidades, bairroSlug);
 
       // Garante um id de conversa para vincular lead e cartões.
       const conversaId = await garantirConversa(conversaIdIn);
@@ -287,7 +341,7 @@ export async function POST(req: NextRequest) {
         temperature: 0.5,
         max_tokens: 300,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...messages,
           choice.message,
           {
