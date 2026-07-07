@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
     const bairroSlug: string | undefined = body.bairroSlug;
     const conversaIdIn: string | undefined = body.conversaId;
 
-    if (messages.length > 12) {
+    if (messages.length > 14) {
       return NextResponse.json({ error: "conversa muito longa" }, { status: 400 });
     }
 
