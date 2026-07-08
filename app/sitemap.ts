@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { BAIRROS, ZONAS, CIDADES, urlBairro, urlZona } from "@/lib/bairros";
+import { SERVICOS_CONTEUDO } from "@/lib/servicos-conteudo";
 import { SITE } from "@/lib/site";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
@@ -14,8 +15,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.9,
     })),
+    { url: `${SITE.url}/servicos`, lastModified: agora, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE.url}/blog`, lastModified: agora, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE.url}/sou-diarista`, lastModified: agora, changeFrequency: "monthly", priority: 0.6 },
+    ...SERVICOS_CONTEUDO.map((s) => ({
+      url: `${SITE.url}/${s.slug}`,
+      lastModified: agora,
+      changeFrequency: "monthly" as const,
+      priority: 0.75,
+    })),
   ];
 
   // Posts publicados do blog.
