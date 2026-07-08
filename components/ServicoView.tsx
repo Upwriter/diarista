@@ -68,8 +68,8 @@ export default function ServicoView({ slug }: { slug: string }) {
           <span className="text-ink/80">{s.nome}</span>
         </nav>
 
-        <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl">
-          {s.nome}
+        <h1 className="mt-5 font-display text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+          {s.h1}
         </h1>
 
         <p className="mt-6 text-lg leading-relaxed text-ink/75">{s.intro}</p>
@@ -82,32 +82,14 @@ export default function ServicoView({ slug }: { slug: string }) {
 
         {/* O que faz */}
         <section className="mt-10">
-          <h2 className="font-display text-2xl font-bold">O que a {s.nome.toLowerCase()} faz</h2>
-          <ul className="mt-4 space-y-2.5 text-ink/75">
-            {s.oQueFaz.map((item) => (
-              <li key={item} className="flex items-start gap-2.5">
-                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
-                {item}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-sm text-ink/60">
-            Cada profissional é autônoma e define como trabalha. Você combina o que precisa,
-            valor, dia e detalhes diretamente com a profissional.
-          </p>
+          <h2 className="font-display text-2xl font-bold">{s.oQueFazTitulo}</h2>
+          <p className="mt-4 leading-relaxed text-ink/75">{s.oQueFazTexto}</p>
         </section>
 
         {/* Quando contratar */}
         <section className="mt-10">
-          <h2 className="font-display text-2xl font-bold">Quando contratar</h2>
-          <ul className="mt-4 space-y-2.5 text-ink/75">
-            {s.quandoContratar.map((item) => (
-              <li key={item} className="flex items-start gap-2.5">
-                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-coral" />
-                {item}
-              </li>
-            ))}
-          </ul>
+          <h2 className="font-display text-2xl font-bold">{s.quandoTitulo}</h2>
+          <p className="mt-4 leading-relaxed text-ink/75">{s.quandoTexto}</p>
         </section>
 
         {/* Foto 2 — perto do fim, antes da chamada para a Cida */}
@@ -118,15 +100,9 @@ export default function ServicoView({ slug }: { slug: string }) {
 
         {/* Chamada para a Cida */}
         <section className="mt-10 rounded-2xl bg-brand-light/50 p-8 text-center">
-          <h2 className="font-display text-2xl font-bold">
-            Precisa de {s.nome === "Limpeza pós-obra" ? "uma limpeza pós-obra" : `uma ${s.nome.toLowerCase()}`}?
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-ink/70">
-            Converse com a Cida, nossa atendente. Ela te ajuda a se conectar com profissionais
-            disponíveis na sua região — e você combina tudo direto com a profissional.
-          </p>
+          <p className="mx-auto max-w-xl text-ink/75">{s.fechamento}</p>
           <div className="mt-6 flex justify-center">
-            <OpenChatButton label={`Falar com a Cida sobre ${s.nome.toLowerCase()}`} />
+            <OpenChatButton label="Falar com a Cida" />
           </div>
         </section>
       </article>
