@@ -1,8 +1,12 @@
-﻿import Link from "next/link";
+﻿"use client";
+
+import Link from "next/link";
 import { SITE } from "@/lib/site";
 
 export default function Footer() {
-  const whatsappHref = `https://wa.me/${SITE.whatsapp}`;
+  function abrirChat() {
+    window.dispatchEvent(new CustomEvent("open-chat-widget"));
+  }
 
   return (
     <footer className="border-t border-brand-light bg-white">
@@ -43,18 +47,17 @@ export default function Footer() {
               </svg>
             </a>
 
-            {/* WhatsApp */}
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="WhatsApp"
+            {/* WhatsApp — abre o chat da Cida */}
+            <button
+              type="button"
+              onClick={abrirChat}
+              aria-label="Falar com a Cida"
               className="text-ink/40 transition-colors hover:text-brand"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
               </svg>
-            </a>
+            </button>
           </div>
         </div>
 
