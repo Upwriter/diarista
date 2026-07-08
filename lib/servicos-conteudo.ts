@@ -62,7 +62,7 @@ export const SERVICOS_CONTEUDO: Servico[] = [
       "A faxina costuma ser a escolha certa em momentos específicos: ao mudar de casa, depois de uma festa ou reunião, na virada das estações, antes de uma ocasião especial, ou simplesmente quando a limpeza do dia a dia já não dá conta do acúmulo. Se a sensação é de que a casa precisa “voltar ao ponto zero”, é faxina que você procura.",
     fechamento:
       "Diga para a Cida o que você precisa e onde você mora. Ela conecta você a profissionais disponíveis na sua região que atendem esse tipo de limpeza, e você acerta os detalhes direto com ela.",
-    alt1: "Faxineira limpando o vidro de uma janela",
+    alt1: "Faxineira esfregando o azulejo do banheiro com esponja",
     alt2: "Faxineira fazendo a limpeza pesada de um banheiro",
   },
   {
