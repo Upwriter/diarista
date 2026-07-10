@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { BAIRROS, ZONAS, CIDADES, urlBairro, urlZona } from "@/lib/bairros";
 import { SERVICOS_CONTEUDO } from "@/lib/servicos-conteudo";
+import { KEYWORDS } from "@/lib/keywords-servicos";
 import { SITE } from "@/lib/site";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
@@ -57,5 +58,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  return [...fixas, ...paginasZona, ...paginasBairro, ...paginasBlog];
+  // Páginas de keyword sob /servicos/: raiz + cidade + bairro, por keyword.
+  const paginasKeyword: MetadataRoute.Sitemap = [];
+  for (const kw of KEYWORDS) {
+    paginasKeyword.push({
+      url: `${SITE.url}/servicos/${kw.slug}`,
+      lastModified: agora,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    });
+    for (const c of CIDADES) {
+      paginasKeyword.push({
+        url: `${SITE.url}/servicos/${kw.slug}-${c.slug}`,
+        lastModified: agora,
+        changeFrequency: "monthly",
+        priority: 0.55,
+      });
+    }
+    for (const b of BAIRROS) {
+      paginasKeyword.push({
+        url: `${SITE.url}/servicos/${kw.slug}-${b.cidadeSlug}-${b.slug}`,
+        lastModified: agora,
+        changeFrequency: "monthly",
+        priority: 0.5,
+      });
+    }
+  }
+
+  return [...fixas, ...paginasZona, ...paginasBairro, ...paginasBlog, ...paginasKeyword];
 }
