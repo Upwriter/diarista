@@ -17,6 +17,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     })),
     { url: `${SITE.url}/servicos`, lastModified: agora, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE.url}/diarista-perto-de-mim`, lastModified: agora, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE.url}/app-de-faxineira`, lastModified: agora, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE.url}/vaga-de-faxineira-1-vez-semana`, lastModified: agora, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${SITE.url}/vaga-cozinheira-diarista`, lastModified: agora, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE.url}/blog`, lastModified: agora, changeFrequency: "weekly", priority: 0.7 },
     { url: `${SITE.url}/sou-diarista`, lastModified: agora, changeFrequency: "monthly", priority: 0.6 },
     ...SERVICOS_CONTEUDO.map((s) => ({
