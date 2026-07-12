@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getAutor } from "@/lib/autores";
 
 export const metadata: Metadata = {
   title: "Blog | Diarista Perto de Mim",
@@ -15,12 +16,21 @@ interface PostLista {
   titulo: string;
   meta_descricao: string | null;
   imagem_capa_url: string | null;
+  autor: string | null;
+  data_publicacao: string | null;
+}
+
+function formatarData(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
 export default async function Blog() {
   const { data } = await supabaseAdmin
     .from("posts_blog")
-    .select("slug, titulo, meta_descricao, imagem_capa_url, data_publicacao, criado_em")
+    .select("slug, titulo, meta_descricao, imagem_capa_url, autor, data_publicacao, criado_em")
     .eq("status", "publicado")
     .order("data_publicacao", { ascending: false, nullsFirst: false })
     .order("criado_em", { ascending: false });
@@ -68,6 +78,10 @@ export default async function Blog() {
                 {p.meta_descricao && (
                   <p className="mt-2 line-clamp-3 text-sm text-ink/60">{p.meta_descricao}</p>
                 )}
+                <p className="mt-3 text-xs text-ink/40">
+                  por {getAutor(p.autor).nome}
+                  {formatarData(p.data_publicacao) && ` · ${formatarData(p.data_publicacao)}`}
+                </p>
                 <span className="mt-3 inline-block text-sm font-semibold text-brand">Ler artigo →</span>
               </div>
             </Link>

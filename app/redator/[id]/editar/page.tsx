@@ -16,7 +16,7 @@ export default async function EditarPostPage({ params }: Props) {
 
   const { data: post } = await supabaseAdmin
     .from("posts_blog")
-    .select("id, titulo, slug, meta_descricao, imagem_capa_url, conteudo_html, status")
+    .select("id, titulo, slug, meta_descricao, imagem_capa_url, conteudo_html, status, autor")
     .eq("id", id)
     .maybeSingle();
 
@@ -32,6 +32,7 @@ export default async function EditarPostPage({ params }: Props) {
         imagem_capa_url: post.imagem_capa_url ?? "",
         conteudo_html: post.conteudo_html ?? "",
         status: post.status === "publicado" ? "publicado" : "rascunho",
+        autor: post.autor ?? "larissa",
       }}
     />
   );

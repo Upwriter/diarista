@@ -18,6 +18,7 @@ export default async function NovoPostPage() {
         imagem_capa_url: "",
         conteudo_html: "",
         status: "rascunho",
+        autor: "larissa",
       }}
     />
   );

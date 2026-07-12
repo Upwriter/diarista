@@ -4,6 +4,8 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createSupabaseServer, ADMIN_EMAIL } from "@/lib/supabase-server";
 import { SITE } from "@/lib/site";
+import { getAutor } from "@/lib/autores";
+import AutorCard from "@/components/AutorCard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +22,13 @@ interface Post {
   conteudo_html: string;
   status: string;
   data_publicacao: string | null;
+  autor: string | null;
 }
 
 async function buscarPost(slug: string): Promise<Post | null> {
   const { data } = await supabaseAdmin
     .from("posts_blog")
-    .select("titulo, slug, meta_descricao, imagem_capa_url, conteudo_html, status, data_publicacao")
+    .select("titulo, slug, meta_descricao, imagem_capa_url, conteudo_html, status, data_publicacao, autor")
     .eq("slug", slug)
     .maybeSingle();
   return (data as Post) ?? null;
@@ -83,6 +86,8 @@ export default async function PostPage({ params, searchParams }: Props) {
       })
     : null;
 
+  const autor = getAutor(post.autor);
+
   return (
     <article className="mx-auto max-w-3xl px-5 py-14">
       {post.status !== "publicado" && (
@@ -100,9 +105,20 @@ export default async function PostPage({ params, searchParams }: Props) {
       <h1 className="mt-5 font-display text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
         {post.titulo}
       </h1>
-      {dataFormatada && (
-        <p className="mt-3 text-sm text-ink/50">Publicado em {dataFormatada}</p>
-      )}
+
+      {/* Autor + data */}
+      <div className="mt-4 flex items-center gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={autor.foto}
+          alt={autor.nome}
+          className="h-9 w-9 rounded-full object-cover ring-2 ring-brand-light"
+        />
+        <p className="text-sm text-ink/60">
+          <span className="font-semibold text-ink">{autor.nome}</span>
+          {dataFormatada && <> · {dataFormatada}</>}
+        </p>
+      </div>
 
       {post.imagem_capa_url && (
         <div className="mt-6 overflow-hidden rounded-2xl">
@@ -117,6 +133,14 @@ export default async function PostPage({ params, searchParams }: Props) {
         className="post-conteudo mt-8"
         dangerouslySetInnerHTML={{ __html: post.conteudo_html }}
       />
+
+      {/* Card do autor */}
+      <div className="mt-12 border-t border-brand-light pt-10">
+        <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-ink/40">
+          Sobre o autor
+        </p>
+        <AutorCard autor={autor} />
+      </div>
     </article>
   );
 }

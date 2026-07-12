@@ -1,4 +1,6 @@
 ﻿import type { Metadata } from "next";
+import { AUTORES_LISTA } from "@/lib/autores";
+import AutorCard from "@/components/AutorCard";
 
 export const metadata: Metadata = {
   title: "Sobre nós | Diarista Perto de Mim",
@@ -52,87 +54,9 @@ export default function SobreNos() {
         </p>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
-          {/* Card: Filipi */}
-          <div className="flex flex-col items-center rounded-2xl border border-brand-light bg-white p-6 text-center sm:p-8">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/equipe/filipi-padovese.jpg"
-              alt="Filipi Padovese"
-              width={140}
-              height={140}
-              className="h-[140px] w-[140px] rounded-full object-cover ring-4 ring-brand-light"
-            />
-            <h2 className="mt-5 font-display text-2xl font-bold text-ink">Filipi Padovese</h2>
-            <p className="mt-1 font-semibold text-brand">Criador do Diarista Perto de Mim</p>
-            <p className="mt-4 leading-relaxed text-ink/70">
-              Filipi é especialista em SEO e fundador da Upwriter, agência de otimização para
-              buscadores. A ideia do Diarista Perto de Mim nasceu ao perceber, de perto, a
-              dificuldade de conhecidos para encontrar uma diarista — e o quanto as
-              próprias diaristas dependiam quase só da indicação boca a boca para conseguir novos
-              trabalhos. Foi daí que surgiu o propósito de criar uma ponte direta entre quem
-              precisa do serviço e quem faz dele sua profissão.
-            </p>
-            <div className="mt-5 flex justify-center gap-3">
-              <a
-                href="https://www.instagram.com/filipi.pado/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Instagram de Filipi Padovese"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-light text-brand transition-colors hover:bg-coral hover:text-white"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-                </svg>
-              </a>
-            </div>
-          </div>
-
-          {/* Card: Larissa */}
-          <div className="flex flex-col items-center rounded-2xl border border-brand-light bg-white p-6 text-center sm:p-8">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/equipe/larissa-adomaitis.jpg"
-              alt="Larissa Adomaitis"
-              width={140}
-              height={140}
-              className="h-[140px] w-[140px] rounded-full object-cover ring-4 ring-brand-light"
-            />
-            <h2 className="mt-5 font-display text-2xl font-bold text-ink">Larissa Adomaitis</h2>
-            <p className="mt-1 font-semibold text-brand">Especialista em SEO</p>
-            <p className="mt-4 leading-relaxed text-ink/70">
-              Larissa é a head de SEO do Diarista Perto de Mim. Ela aplica seu conhecimento em
-              otimização para buscadores para fortalecer a conexão entre quem procura uma
-              diarista e as profissionais cadastradas na plataforma.
-            </p>
-            <div className="mt-5 flex justify-center gap-3">
-              <a
-                href="https://www.instagram.com/larissa.adomaitis"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Instagram de Larissa Adomaitis"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-light text-brand transition-colors hover:bg-coral hover:text-white"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-                </svg>
-              </a>
-              <a
-                href="https://www.linkedin.com/in/larissa-adomaitis-padovese-4b16381bb/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="LinkedIn de Larissa Adomaitis"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-light text-brand transition-colors hover:bg-coral hover:text-white"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M4.98 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.08 1.4-2.08 2.85V21H9z" />
-                </svg>
-              </a>
-            </div>
-          </div>
+          {AUTORES_LISTA.map((autor) => (
+            <AutorCard key={autor.id} autor={autor} />
+          ))}
         </div>
       </section>
     </>

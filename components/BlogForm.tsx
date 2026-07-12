@@ -12,6 +12,7 @@ export interface PostForm {
   imagem_capa_url: string;
   conteudo_html: string;
   status: "rascunho" | "publicado";
+  autor: string;
 }
 
 function slugify(texto: string): string {
@@ -190,16 +191,30 @@ export default function BlogForm({ inicial }: { inicial: PostForm }) {
           </p>
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-semibold text-ink">Status</label>
-          <select
-            value={form.status}
-            onChange={(e) => set("status", e.target.value === "publicado" ? "publicado" : "rascunho")}
-            className="rounded-xl border border-brand-light bg-white px-4 py-3 text-sm focus:border-brand focus:outline-none"
-          >
-            <option value="rascunho">Rascunho</option>
-            <option value="publicado">Publicado</option>
-          </select>
+        <div className="flex flex-wrap gap-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-ink">Status</label>
+            <select
+              value={form.status}
+              onChange={(e) => set("status", e.target.value === "publicado" ? "publicado" : "rascunho")}
+              className="rounded-xl border border-brand-light bg-white px-4 py-3 text-sm focus:border-brand focus:outline-none"
+            >
+              <option value="rascunho">Rascunho</option>
+              <option value="publicado">Publicado</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-ink">Autor</label>
+            <select
+              value={form.autor}
+              onChange={(e) => set("autor", e.target.value)}
+              className="rounded-xl border border-brand-light bg-white px-4 py-3 text-sm focus:border-brand focus:outline-none"
+            >
+              <option value="larissa">Larissa Adomaitis</option>
+              <option value="filipi">Filipi Padovese</option>
+            </select>
+          </div>
         </div>
 
         {erro && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{erro}</p>}

@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   let imagemCapa: string = (body.imagem_capa_url || "").trim();
   const conteudoBruto: string = body.conteudo_html || "";
   const status: string = body.status === "publicado" ? "publicado" : "rascunho";
+  const autor: string = body.autor === "filipi" ? "filipi" : "larissa";
 
   if (!titulo) return erro("O título é obrigatório.");
   if (!conteudoBruto.trim()) return erro("O conteúdo é obrigatório.");
@@ -75,6 +76,7 @@ export async function POST(req: NextRequest) {
         imagem_capa_url: imagemCapa || null,
         conteudo_html: conteudoHtml,
         status,
+        autor,
         data_publicacao: dataPublicacao,
         atualizado_em: agora,
       })
@@ -93,6 +95,7 @@ export async function POST(req: NextRequest) {
       imagem_capa_url: imagemCapa || null,
       conteudo_html: conteudoHtml,
       status,
+      autor,
       data_publicacao: status === "publicado" ? agora : null,
     })
     .select("id, slug")
