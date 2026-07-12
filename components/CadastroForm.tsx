@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CIDADES, ZONAS, bairrosDaCidade, getCidade } from "@/lib/bairros";
+import { preencherContrato, tituloContrato } from "@/lib/contratos";
 
 // ── Dados estáticos de serviços e imóveis (espelham o banco) ──────────
 const SERVICOS = [
@@ -108,6 +109,10 @@ export default function CadastroForm() {
   const [atendeTodos, setAtendeTodos] = useState(false);
   const [bairrosSel, setBairrosSel] = useState<string[]>([]);
   const [zonaFiltro, setZonaFiltro] = useState("");
+  // Aceite do contrato (hoje sempre o do plano Gratuito).
+  const [aceito, setAceito] = useState(false);
+  const [contratoAberto, setContratoAberto] = useState(false);
+  const PLANO_ATUAL = "gratuito" as const;
 
   const TOTAL_STEPS = 4;
 
@@ -168,6 +173,7 @@ export default function CadastroForm() {
     }
     if (step === 3) {
       if (!atendeTodos && !bairrosSel.length) return "Selecione pelo menos 1 bairro ou marque que atende todos.";
+      if (!aceito) return "É necessário ler e aceitar o contrato para concluir o cadastro.";
     }
     return "";
   }
@@ -201,6 +207,8 @@ export default function CadastroForm() {
           imoveis: imoveisSel,
           atendeTodosBairros: atendeTodos,
           bairros: atendeTodos ? [] : bairrosSel,
+          plano: PLANO_ATUAL,
+          aceiteContrato: aceito,
         }),
       });
       const data = await res.json();
@@ -470,6 +478,32 @@ export default function CadastroForm() {
               )}
             </>
           )}
+
+          {/* ── Contrato (assinatura digital) ── */}
+          <div className="mt-4 rounded-xl border border-brand-light bg-paper/50 p-4">
+            <p className="text-sm font-semibold text-ink">Contrato de adesão</p>
+            <p className="mt-0.5 text-xs text-ink/60">
+              Para concluir, leia e aceite o contrato do plano Gratuito.
+            </p>
+            <button
+              type="button"
+              onClick={() => setContratoAberto(true)}
+              className="mt-3 inline-flex items-center gap-2 rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-brand hover:text-paper"
+            >
+              📄 Ler o contrato
+            </button>
+            <label className="mt-3 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={aceito}
+                onChange={(e) => setAceito(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-brand accent-brand"
+              />
+              <span className="text-sm text-ink">
+                Li e aceito o contrato do Diarista Perto de Mim
+              </span>
+            </label>
+          </div>
         </div>
       )}
 
@@ -506,13 +540,55 @@ export default function CadastroForm() {
           <button
             type="button"
             onClick={enviar}
-            disabled={enviando}
+            disabled={enviando || !aceito}
             className="rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-coral-dark disabled:opacity-50"
           >
             {enviando ? "Cadastrando…" : "Finalizar cadastro"}
           </button>
         )}
       </div>
+
+      {/* ── Modal do contrato ── */}
+      {contratoAberto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setContratoAberto(false)}
+        >
+          <div
+            className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-brand-light px-5 py-4">
+              <h3 className="font-display text-lg font-bold">{tituloContrato(PLANO_ATUAL)}</h3>
+              <button
+                onClick={() => setContratoAberto(false)}
+                aria-label="Fechar"
+                className="grid h-8 w-8 place-items-center rounded-full text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-ink/80">
+                {preencherContrato(PLANO_ATUAL, {
+                  nome: nomeCompleto || "(seu nome completo)",
+                  documento: cpf || "(seu CPF)",
+                  dataHora: "(registrado no momento do aceite)",
+                  ip: "(registrado no servidor)",
+                })}
+              </pre>
+            </div>
+            <div className="border-t border-brand-light px-5 py-4">
+              <button
+                onClick={() => { setAceito(true); setContratoAberto(false); }}
+                className="w-full rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-brand-dark"
+              >
+                Li e aceito o contrato
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

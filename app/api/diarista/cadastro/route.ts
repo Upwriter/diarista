@@ -2,6 +2,7 @@
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { validarCPF } from "@/lib/cpf";
 import { getCidade } from "@/lib/bairros";
+import { preencherContrato, VERSAO_CONTRATO, type PlanoContrato } from "@/lib/contratos";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,11 @@ export async function POST(req: NextRequest) {
       servicos,
       precos,
       imoveis,
+      aceiteContrato,
     } = body;
+
+    // Plano atual do cadastro (hoje só o Gratuito está ativo).
+    const plano: PlanoContrato = body.plano === "profissional" ? "profissional" : "gratuito";
 
     // Resolve a cidade escolhida (para gravação e para filtrar bairros).
     const cidadeInfo = getCidade(cidadeSlug ?? "sao-paulo");
@@ -42,6 +47,7 @@ export async function POST(req: NextRequest) {
     if (!imoveis?.length)               return err("Selecione pelo menos 1 tipo de imóvel.");
     if (!atendeTodosBairros && !bairros?.length)
       return err("Selecione pelo menos 1 bairro ou marque que atende todos.");
+    if (aceiteContrato !== true)        return err("É necessário ler e aceitar o contrato para concluir o cadastro.");
 
     // ── b) Validação do CPF ───────────────────────────────────────────
     if (!validarCPF(cpf)) return err("CPF inválido.");
@@ -152,7 +158,38 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── i) Sucesso ────────────────────────────────────────────────────
+    // ── i) Registro do aceite do contrato (assinatura digital) ─────────
+    // IP e data/hora capturados NO SERVIDOR (não confiamos no cliente).
+    const ip =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      req.headers.get("x-real-ip") ||
+      "desconhecido";
+    const dataHoraDate = new Date();
+    const dataHoraLegivel = dataHoraDate.toLocaleString("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "medium",
+      timeZone: "America/Sao_Paulo",
+    });
+
+    const textoContrato = preencherContrato(plano, {
+      nome: nomeCompleto,
+      documento: cpf, // como informado no cadastro
+      dataHora: `${dataHoraLegivel} (horário de Brasília)`,
+      ip,
+    });
+
+    await supabaseAdmin.from("aceites_contrato").insert({
+      diarista_id:         diaId,
+      plano,
+      versao_contrato:     VERSAO_CONTRATO,
+      nome_assinante:      nomeCompleto,
+      documento_assinante: cpf,
+      texto_contrato:      textoContrato,
+      data_hora_aceite:    dataHoraDate.toISOString(),
+      ip_aceite:           ip,
+    });
+
+    // ── j) Sucesso ────────────────────────────────────────────────────
     return NextResponse.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro interno.";

@@ -99,6 +99,7 @@ export default function Painel() {
   const supabase = createSupabaseBrowser();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [leads, setLeads] = useState<number>(0);
+  const [temContrato, setTemContrato] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -127,6 +128,13 @@ export default function Painel() {
         .select("id", { count: "exact", head: true })
         .eq("diarista_id", data.id);
       setLeads(count ?? 0);
+
+      // Verifica se há contrato assinado (RLS permite ler os próprios aceites).
+      const { count: aceites } = await supabase
+        .from("aceites_contrato")
+        .select("id", { count: "exact", head: true })
+        .eq("diarista_id", data.id);
+      setTemContrato((aceites ?? 0) > 0);
 
       setCarregando(false);
     }
@@ -267,6 +275,20 @@ export default function Painel() {
             </div>
           )}
         </Secao>
+
+        {temContrato && (
+          <Secao titulo="Meu contrato">
+            <p className="text-sm text-ink/60">
+              Você assinou digitalmente o contrato de adesão ao se cadastrar. Baixe uma cópia em PDF.
+            </p>
+            <a
+              href="/api/diarista/contrato"
+              className="mt-3 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-brand-dark"
+            >
+              📄 Baixar contrato (PDF)
+            </a>
+          </Secao>
+        )}
       </div>
 
       <p className="mt-8 text-center text-xs text-ink/30">
