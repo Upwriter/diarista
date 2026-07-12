@@ -16,6 +16,27 @@ export interface KeywordPagina {
 
 export const KEYWORDS: KeywordPagina[] = [
   {
+    slug: "domestica",
+    nome: "Doméstica e diarista",
+    h1Tpl: "Doméstica e diarista {local}: encontre quem cuida da sua casa",
+    aberturaTpl:
+      "Quem procura uma doméstica {local} geralmente quer uma coisa simples: alguém para cuidar da limpeza e da organização da casa. Hoje, uma das formas mais práticas de resolver isso é se conectar diretamente com diaristas autônomas que atendem a sua região — profissionais que trabalham por conta própria e combinam o serviço diretamente com você.",
+    blocos: [
+      {
+        tituloTpl: "O que essas profissionais fazem",
+        textoTpl:
+          "As diaristas cuidam da limpeza da casa no dia a dia ou de forma avulsa: pisos, banheiros, cozinha, tirar pó, louças, organização dos ambientes e o que mais for combinado. Cada profissional tem a sua forma de trabalhar e acerta com você o que está incluído, a frequência e os valores — tudo direto, sem intermediário no meio do serviço.",
+      },
+      {
+        tituloTpl: "Como encontrar {local}",
+        textoTpl:
+          "O Diarista Perto de Mim conecta você a profissionais disponíveis {local}. Você conta o que precisa — o tipo de limpeza, o bairro e a frequência — e mostramos diaristas autônomas que atendem a sua região. Não somos uma empresa de limpeza e não empregamos as profissionais: fazemos a apresentação entre você e quem realiza o serviço, e o combinado de dias, tarefas e valores fica entre vocês.",
+      },
+    ],
+    fechamentoTpl:
+      "Conte para a Cida o que você precisa. Ela conecta você a profissionais disponíveis {local}, e você combina o resto direto com a diarista.",
+  },
+  {
     slug: "domestica-empregada",
     nome: "Empregada doméstica e diarista",
     h1Tpl: "Empregada doméstica e diarista: qual a diferença e como encontrar {local}",
