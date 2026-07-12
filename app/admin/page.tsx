@@ -47,7 +47,7 @@ export default async function AdminPage() {
     .from("diaristas")
     .select(`
       id, user_id, nome_completo, cpf, whatsapp, whatsapp2, plano,
-      atende_todos_bairros, foto_url, cidade, created_at,
+      atende_todos_bairros, foto_url, cidade, created_at, excluida, excluida_em,
       diarista_bairros ( bairros ( nome ) ),
       diarista_servicos ( servicos ( nome ) ),
       diarista_imoveis ( imoveis ( nome ) )
@@ -55,6 +55,14 @@ export default async function AdminPage() {
     .order("created_at", { ascending: false });
 
   const lista = diaristas ?? [];
+
+  // ── Quais diaristas têm contrato assinado ────────────────────────────
+  const { data: aceites } = await supabaseAdmin
+    .from("aceites_contrato")
+    .select("diarista_id");
+  const comContrato = new Set(
+    (aceites ?? []).map((a) => (a as { diarista_id: string }).diarista_id).filter(Boolean)
+  );
 
   // ── Contagem de leads (cliques_whatsapp) por diarista ────────────────
   const { data: cliques } = await supabaseAdmin
@@ -94,6 +102,9 @@ export default async function AdminPage() {
     fotoUrl:            d.foto_url ?? null,
     cpfMascarado:       mascararCpf(d.cpf),
     cidade:             d.cidade ?? "",
+    excluida:           !!d.excluida,
+    excluidaEm:         d.excluida_em ?? null,
+    temContrato:        comContrato.has(d.id),
   }));
 
   return <AdminTabela dados={dados} />;

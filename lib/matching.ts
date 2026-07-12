@@ -84,7 +84,8 @@ export async function encontrarDiaristas(params: Params): Promise<DiaristaMatch[
     .from("diaristas")
     .select("id, nome_completo, plano, atende_todos_bairros, ultima_indicacao")
     .in("id", candidatasIds)
-    .eq("ativo", true);
+    .eq("ativo", true)
+    .eq("excluida", false);
 
   const elegiveis = (diaristas ?? []).filter((d: Candidata) =>
     // Atende o bairro: OU atende todos, OU tem ligação com o bairro pedido.

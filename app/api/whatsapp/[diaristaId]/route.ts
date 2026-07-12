@@ -16,12 +16,12 @@ export async function GET(req: NextRequest, { params }: Props) {
   // Busca o número da diarista (nunca exposto em JSON, só usado no redirect).
   const { data } = await supabaseAdmin
     .from("diaristas")
-    .select("whatsapp, ativo")
+    .select("whatsapp, ativo, excluida")
     .eq("id", diaristaId)
     .maybeSingle();
 
-  // Diarista inexistente ou inativa → volta para a home.
-  if (!data || !data.ativo || !data.whatsapp) {
+  // Diarista inexistente, inativa ou excluída → volta para a home.
+  if (!data || !data.ativo || data.excluida || !data.whatsapp) {
     return NextResponse.redirect(new URL("/", req.url), 302);
   }
 

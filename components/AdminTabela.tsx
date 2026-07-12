@@ -22,9 +22,13 @@ export interface DiaristaAdmin {
   fotoUrl: string | null;
   cpfMascarado: string;
   cidade: string;
+  excluida: boolean;
+  excluidaEm: string | null;
+  temContrato: boolean;
 }
 
 type Filtro = "todos" | "free" | "pago";
+type FiltroStatus = "todas" | "ativas" | "excluidas";
 
 function formatarData(iso: string | null): string {
   if (!iso) return "—";
@@ -61,18 +65,27 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
   const router = useRouter();
   const supabase = createSupabaseBrowser();
   const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("ativas");
   const [selecionada, setSelecionada] = useState<DiaristaAdmin | null>(null);
 
   const filtradas = useMemo(() => {
-    if (filtro === "todos") return dados;
-    return dados.filter((d) => d.plano === filtro);
-  }, [dados, filtro]);
+    return dados.filter((d) => {
+      const okPlano = filtro === "todos" || d.plano === filtro;
+      const okStatus =
+        filtroStatus === "todas" ||
+        (filtroStatus === "ativas" && !d.excluida) ||
+        (filtroStatus === "excluidas" && d.excluida);
+      return okPlano && okStatus;
+    });
+  }, [dados, filtro, filtroStatus]);
 
   const contagem = useMemo(
     () => ({
       todos: dados.length,
       free: dados.filter((d) => d.plano === "free").length,
       pago: dados.filter((d) => d.plano === "pago").length,
+      ativas: dados.filter((d) => !d.excluida).length,
+      excluidas: dados.filter((d) => d.excluida).length,
     }),
     [dados]
   );
@@ -119,8 +132,29 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
         </div>
       </div>
 
-      {/* Filtro por plano */}
+      {/* Filtro por status (ativas/excluídas) */}
       <div className="mt-6 flex flex-wrap gap-2">
+        {([
+          { chave: "ativas", label: `Ativas (${contagem.ativas})` },
+          { chave: "excluidas", label: `Excluídas (${contagem.excluidas})` },
+          { chave: "todas", label: `Todas (${contagem.todos})` },
+        ] as { chave: FiltroStatus; label: string }[]).map((a) => (
+          <button
+            key={a.chave}
+            onClick={() => setFiltroStatus(a.chave)}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              filtroStatus === a.chave
+                ? "bg-ink text-paper"
+                : "bg-ink/5 text-ink/60 hover:bg-ink/10"
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filtro por plano */}
+      <div className="mt-3 flex flex-wrap gap-2">
         {abas.map((a) => (
           <button
             key={a.chave}
@@ -164,7 +198,14 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
                   onClick={() => setSelecionada(d)}
                   className="cursor-pointer border-b border-brand-light/60 transition-colors last:border-0 hover:bg-brand-light/30"
                 >
-                  <td className="px-4 py-3 font-medium">{d.nome}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <span className={d.excluida ? "text-ink/40 line-through" : ""}>{d.nome}</span>
+                    {d.excluida && (
+                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-600">
+                        Excluída
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><PlanoTag plano={d.plano} /></td>
                   <td className="max-w-[220px] truncate px-4 py-3 text-ink/70" title={regioesTexto(d)}>
                     {regioesTexto(d)}
@@ -206,7 +247,14 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
                 </div>
                 <div>
                   <h2 className="font-display text-xl font-bold">{selecionada.nome}</h2>
-                  <div className="mt-1"><PlanoTag plano={selecionada.plano} /></div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <PlanoTag plano={selecionada.plano} />
+                    {selecionada.excluida && (
+                      <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-bold text-red-600">
+                        Excluída
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button
@@ -227,6 +275,25 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
               <Linha rotulo="Cadastro" valor={formatarData(selecionada.createdAt)} />
               <Linha rotulo="Leads recebidos" valor={String(selecionada.leads)} />
               <Linha rotulo="1ª assinatura paga" valor={formatarData(selecionada.primeiraAssinatura)} />
+              {selecionada.excluida && (
+                <Linha rotulo="Excluída em" valor={formatarData(selecionada.excluidaEm)} />
+              )}
+
+              <div>
+                <dt className="text-ink/50">Contrato assinado</dt>
+                <dd className="mt-1">
+                  {selecionada.temContrato ? (
+                    <a
+                      href={`/api/admin/contrato?id=${selecionada.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1 text-xs font-semibold text-paper transition-colors hover:bg-brand-dark"
+                    >
+                      📄 Baixar contrato (PDF)
+                    </a>
+                  ) : (
+                    <span className="text-ink/40">Nenhum contrato registrado</span>
+                  )}
+                </dd>
+              </div>
 
               <div>
                 <dt className="text-ink/50">Bairros</dt>

@@ -45,15 +45,15 @@ export default async function PerfilPublico({ params, searchParams }: Props) {
   const { data } = await supabaseAdmin
     .from("diaristas")
     .select(`
-      id, nome_completo, foto_url, apresentacao, galeria, atende_todos_bairros, cidade, ativo,
+      id, nome_completo, foto_url, apresentacao, galeria, atende_todos_bairros, cidade, ativo, excluida,
       diarista_bairros ( bairros ( nome ) ),
       diarista_servicos ( servicos ( nome ) )
     `)
     .eq("id", id)
     .maybeSingle();
 
-  // Diarista inexistente ou inativa → página indisponível (404).
-  if (!data || !data.ativo) notFound();
+  // Diarista inexistente, inativa ou excluída → página indisponível (404).
+  if (!data || !data.ativo || data.excluida) notFound();
 
   const nome = data.nome_completo as string;
   const primeiroNome = nome.split(" ")[0];

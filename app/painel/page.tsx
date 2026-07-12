@@ -101,6 +101,9 @@ export default function Painel() {
   const [leads, setLeads] = useState<number>(0);
   const [temContrato, setTemContrato] = useState(false);
   const [carregando, setCarregando] = useState(true);
+  const [confirmarExcluir, setConfirmarExcluir] = useState(false);
+  const [processando, setProcessando] = useState(false);
+  const [avisoConta, setAvisoConta] = useState("");
 
   useEffect(() => {
     async function carregar() {
@@ -144,6 +147,46 @@ export default function Painel() {
   async function sair() {
     await supabase.auth.signOut();
     router.push("/entrar");
+  }
+
+  async function cancelarPlano() {
+    setAvisoConta("");
+    setProcessando(true);
+    try {
+      const res = await fetch("/api/diarista/conta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancelar-plano" }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.erro || "Erro");
+      setPerfil((p) => (p ? { ...p, plano: "free" } : p));
+      setAvisoConta("Plano cancelado. Você voltou ao plano Gratuito.");
+    } catch (e) {
+      setAvisoConta(e instanceof Error ? e.message : "Erro ao cancelar o plano.");
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function excluirPerfil() {
+    setProcessando(true);
+    try {
+      const res = await fetch("/api/diarista/conta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "excluir" }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.erro || "Erro");
+      // Perfil excluído → encerra a sessão e volta para a home.
+      await supabase.auth.signOut();
+      router.replace("/");
+    } catch (e) {
+      setProcessando(false);
+      setConfirmarExcluir(false);
+      setAvisoConta(e instanceof Error ? e.message : "Erro ao excluir o perfil.");
+    }
   }
 
   if (carregando) {
@@ -289,7 +332,81 @@ export default function Painel() {
             </a>
           </Secao>
         )}
+
+        {/* Gerenciar minha conta */}
+        <Secao titulo="Gerenciar minha conta">
+          {avisoConta && (
+            <p className="mb-3 rounded-xl bg-brand-light/60 px-4 py-2 text-sm font-medium text-brand-dark">
+              {avisoConta}
+            </p>
+          )}
+
+          {perfil.plano === "pago" && (
+            <div className="mb-4 rounded-xl border border-brand-light p-4">
+              <p className="text-sm font-semibold text-ink">Plano Profissional</p>
+              <p className="mt-0.5 text-xs text-ink/60">
+                Ao cancelar, você volta ao plano Gratuito e mantém seu perfil no ar.
+              </p>
+              <button
+                onClick={cancelarPlano}
+                disabled={processando}
+                className="mt-3 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand disabled:opacity-50"
+              >
+                Cancelar plano Profissional
+              </button>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-red-200 bg-red-50/40 p-4">
+            <p className="text-sm font-semibold text-red-700">Excluir meu perfil</p>
+            <p className="mt-0.5 text-xs text-ink/60">
+              Seu perfil deixa de aparecer no site. Esta ação não pode ser desfeita.
+            </p>
+            <button
+              onClick={() => { setAvisoConta(""); setConfirmarExcluir(true); }}
+              disabled={processando}
+              className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50"
+            >
+              Excluir meu perfil em definitivo
+            </button>
+          </div>
+        </Secao>
       </div>
+
+      {/* Modal de confirmação de exclusão */}
+      {confirmarExcluir && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !processando && setConfirmarExcluir(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-display text-xl font-bold text-ink">Tem certeza?</h3>
+            <p className="mt-3 text-sm text-ink/70">
+              Esta ação não pode ser desfeita e seu perfil deixará de aparecer no site
+              (buscas, indicações e perfil público).
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                onClick={() => setConfirmarExcluir(false)}
+                disabled={processando}
+                className="rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink/70 transition-colors hover:border-ink/30 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={excluirPerfil}
+                disabled={processando}
+                className="rounded-full bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+              >
+                {processando ? "Excluindo…" : "Confirmar exclusão"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <p className="mt-8 text-center text-xs text-ink/30">
         Dúvidas? Fale com a gente pelo WhatsApp (11) 92163-0305.
