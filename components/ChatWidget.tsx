@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Role = "user" | "assistant";
 interface Msg { role: Role; content: string }
@@ -100,6 +101,11 @@ function renderAssistant(texto: string): React.ReactNode {
 export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([FIRST_MSG]);
+
+  // Nas páginas de artigo (/blog/[slug]) o botão flutuante some (já há o CTA
+  // da Cida no sidebar). O chat continua funcional (abre pelo CTA / evento).
+  const pathname = usePathname();
+  const emArtigoBlog = pathname.startsWith("/blog/");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversaId, setConversaId] = useState<string | null>(null);
@@ -161,8 +167,8 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
 
   return (
     <>
-      {/* Botão flutuante — some quando o chat está aberto */}
-      {!open && (
+      {/* Botão flutuante — some quando o chat está aberto e nas páginas de artigo */}
+      {!open && !emArtigoBlog && (
         <button
           onClick={() => setOpen(true)}
           aria-label="Abrir chat para encontrar uma diarista"

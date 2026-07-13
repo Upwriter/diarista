@@ -102,7 +102,7 @@ export default async function PostPage({ params, searchParams }: Props) {
     .map((p) => ({ slug: p.slug, titulo: p.titulo, data: p.data_publicacao ?? null }));
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-14 lg:grid lg:grid-cols-[1fr_17rem] lg:gap-10 lg:items-start">
+    <div className="mx-auto max-w-6xl px-5 py-14 lg:grid lg:grid-cols-[1fr_17rem] lg:gap-12 lg:items-start">
     <article className="lg:col-start-1 lg:row-start-1 lg:min-w-0">
       {post.status !== "publicado" && (
         <p className="mb-6 rounded-xl bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-700">
