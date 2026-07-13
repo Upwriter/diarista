@@ -102,8 +102,8 @@ export default async function PostPage({ params, searchParams }: Props) {
     .map((p) => ({ slug: p.slug, titulo: p.titulo, data: p.data_publicacao ?? null }));
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-14 lg:grid lg:grid-cols-[19rem_1fr] lg:gap-10 lg:items-start">
-    <article className="lg:order-2 lg:col-start-2 lg:min-w-0">
+    <div className="mx-auto max-w-5xl px-5 py-14 lg:grid lg:grid-cols-[1fr_17rem] lg:gap-10 lg:items-start">
+    <article className="lg:col-start-1 lg:row-start-1 lg:min-w-0">
       {post.status !== "publicado" && (
         <p className="mb-6 rounded-xl bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-700">
           Pré-visualização de rascunho — não está visível ao público.
@@ -158,7 +158,7 @@ export default async function PostPage({ params, searchParams }: Props) {
     </article>
 
     {/* Sidebar: à esquerda no desktop (sticky), no fim do artigo no mobile */}
-    <aside className="mt-14 lg:mt-0 lg:order-1 lg:col-start-1 lg:row-start-1 lg:sticky lg:top-24">
+    <aside className="mt-14 lg:mt-0 lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
       <BlogSidebar posts={ultimosPosts} />
     </aside>
     </div>
