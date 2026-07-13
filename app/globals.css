@@ -37,6 +37,31 @@ body {
   border-radius: 4px;
 }
 
+/* Animação de entrada dos CTAs do sidebar do blog (uma vez, ao aparecer).
+   Sem JS ou com reduced-motion: tudo estático e visível. */
+.blog-cta.pronto .cta-svc {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.blog-cta.revelar .cta-svc {
+  animation: ctaSubir 0.5s ease forwards;
+}
+.blog-cta.revelar {
+  animation: ctaEntra 0.45s ease;
+}
+@keyframes ctaSubir {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ctaEntra {
+  from { opacity: 0.55; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .blog-cta.pronto .cta-svc,
+  .blog-cta.revelar .cta-svc { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .blog-cta.revelar { animation: none !important; }
+}
+
 /* Tipografia do conteúdo de post do blog (HTML colado do gerador) */
 .post-conteudo {
   color: theme("colors.ink");

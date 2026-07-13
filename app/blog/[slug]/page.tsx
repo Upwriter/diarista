@@ -6,6 +6,7 @@ import { createSupabaseServer, ADMIN_EMAIL } from "@/lib/supabase-server";
 import { SITE } from "@/lib/site";
 import { getAutor } from "@/lib/autores";
 import AutorCard from "@/components/AutorCard";
+import BlogSidebar, { type PostResumo } from "@/components/BlogSidebar";
 
 export const dynamic = "force-dynamic";
 
@@ -88,8 +89,21 @@ export default async function PostPage({ params, searchParams }: Props) {
 
   const autor = getAutor(post.autor);
 
+  // Últimos 5 posts publicados para o sidebar (sempre atualizados).
+  const { data: recentes } = await supabaseAdmin
+    .from("posts_blog")
+    .select("slug, titulo, data_publicacao")
+    .eq("status", "publicado")
+    .order("data_publicacao", { ascending: false, nullsFirst: false })
+    .limit(6);
+  const ultimosPosts: PostResumo[] = (recentes ?? [])
+    .filter((p) => p.slug !== post.slug) // exclui o artigo atual
+    .slice(0, 5)
+    .map((p) => ({ slug: p.slug, titulo: p.titulo, data: p.data_publicacao ?? null }));
+
   return (
-    <article className="mx-auto max-w-3xl px-5 py-14">
+    <div className="mx-auto max-w-5xl px-5 py-14 lg:grid lg:grid-cols-[19rem_1fr] lg:gap-10 lg:items-start">
+    <article className="lg:order-2 lg:col-start-2 lg:min-w-0">
       {post.status !== "publicado" && (
         <p className="mb-6 rounded-xl bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-700">
           Pré-visualização de rascunho — não está visível ao público.
@@ -142,5 +156,11 @@ export default async function PostPage({ params, searchParams }: Props) {
         <AutorCard autor={autor} />
       </div>
     </article>
+
+    {/* Sidebar: à esquerda no desktop (sticky), no fim do artigo no mobile */}
+    <aside className="mt-14 lg:mt-0 lg:order-1 lg:col-start-1 lg:row-start-1 lg:sticky lg:top-24">
+      <BlogSidebar posts={ultimosPosts} />
+    </aside>
+    </div>
   );
 }
