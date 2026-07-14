@@ -120,6 +120,7 @@ export default function Painel() {
   const [confirmarExcluir, setConfirmarExcluir] = useState(false);
   const [processando, setProcessando] = useState(false);
   const [avisoConta, setAvisoConta] = useState("");
+  const [retorno, setRetorno] = useState<"sucesso" | "cancelada" | null>(null);
 
   useEffect(() => {
     async function carregar() {
@@ -160,14 +161,11 @@ export default function Painel() {
     carregar();
   }, []);
 
-  // Mensagem de retorno do checkout (apenas visual — a ativação vem do webhook).
+  // Retorno do checkout (apenas visual — a ativação real vem do webhook).
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get("assinatura");
-    if (p === "sucesso") {
-      setAvisoConta("Pagamento recebido! A ativação do Plano Profissional pode levar alguns instantes.");
-    } else if (p === "cancelada") {
-      setAvisoConta("Checkout cancelado. Nenhuma cobrança foi feita.");
-    }
+    if (p === "sucesso") setRetorno("sucesso");
+    else if (p === "cancelada") setRetorno("cancelada");
     if (p) window.history.replaceState({}, "", "/painel");
   }, []);
 
@@ -199,10 +197,26 @@ export default function Painel() {
       const res = await fetch("/api/stripe/cancelar", { method: "POST" });
       const j = await res.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
+      // O card passa ao estado "cancelamento agendado" (sem faixa extra).
       setPerfil((p) => (p ? { ...p, cancelamentoAgendado: true, dataFimPeriodo: j.dataFimPeriodo ?? p.dataFimPeriodo } : p));
-      setAvisoConta("Cancelamento agendado. Você mantém o Plano Profissional até o fim do período pago.");
     } catch (e) {
       setAvisoConta(e instanceof Error ? e.message : "Erro ao cancelar o plano.");
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  // Desfaz o cancelamento agendado — volta ao estado "ativo".
+  async function reativarPlano() {
+    setAvisoConta("");
+    setProcessando(true);
+    try {
+      const res = await fetch("/api/stripe/reativar", { method: "POST" });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.erro || "Erro");
+      setPerfil((p) => (p ? { ...p, cancelamentoAgendado: false, dataFimPeriodo: j.dataFimPeriodo ?? p.dataFimPeriodo } : p));
+    } catch (e) {
+      setAvisoConta(e instanceof Error ? e.message : "Erro ao reativar o plano.");
     } finally {
       setProcessando(false);
     }
@@ -374,8 +388,19 @@ export default function Painel() {
 
         {/* Gerenciar minha conta */}
         <Secao titulo="Gerenciar minha conta">
-          {avisoConta && (
+          {/* Retorno do checkout: "sucesso" só enquanto o plano NÃO ativou. */}
+          {retorno === "sucesso" && perfil.plano !== "pago" && (
             <p className="mb-3 rounded-xl bg-brand-light/60 px-4 py-2 text-sm font-medium text-brand-dark">
+              Pagamento recebido! A ativação do Plano Profissional pode levar alguns instantes.
+            </p>
+          )}
+          {retorno === "cancelada" && (
+            <p className="mb-3 rounded-xl bg-ink/5 px-4 py-2 text-sm font-medium text-ink/60">
+              Checkout cancelado. Nenhuma cobrança foi feita.
+            </p>
+          )}
+          {avisoConta && (
+            <p className="mb-3 rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-600">
               {avisoConta}
             </p>
           )}
@@ -398,26 +423,40 @@ export default function Painel() {
             </div>
           )}
 
-          {/* Plano Profissional ativo */}
+          {/* Plano Profissional (ativo ou com cancelamento agendado) */}
           {perfil.plano === "pago" && (
             <div className="mb-4 rounded-xl border border-brand-light p-4">
-              <p className="text-sm font-semibold text-ink">Plano Profissional</p>
-
               {perfil.assinaturaStatus === "inadimplente" && (
-                <p className="mt-1 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                <p className="mb-2 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
                   Pagamento pendente. Regularize para manter os benefícios.
                 </p>
               )}
 
               {perfil.cancelamentoAgendado ? (
-                <p className="mt-1 text-xs text-ink/60">
-                  Cancelamento agendado. Você mantém o Plano Profissional
-                  {perfil.dataFimPeriodo ? ` até ${formatarData(perfil.dataFimPeriodo)}` : " até o fim do período pago"}.
-                  Depois disso, seu perfil volta ao plano Gratuito.
-                </p>
-              ) : (
+                // ESTADO 3 — cancelamento agendado
                 <>
-                  <p className="mt-0.5 text-xs text-ink/60">
+                  <p className="text-sm font-semibold text-ink">Plano Profissional</p>
+                  <p className="mt-1 text-xs text-ink/60">
+                    Cancelamento agendado. Você mantém o Plano Profissional
+                    {perfil.dataFimPeriodo ? ` até ${formatarData(perfil.dataFimPeriodo)}` : " até o fim do período pago"}.
+                    Depois disso, seu perfil volta ao plano Gratuito.
+                  </p>
+                  <button
+                    onClick={reativarPlano}
+                    disabled={processando}
+                    className="mt-3 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-brand-dark disabled:opacity-50"
+                  >
+                    {processando ? "Processando…" : "Reativar plano Profissional"}
+                  </button>
+                </>
+              ) : (
+                // ESTADO 2 — ativo
+                <>
+                  <p className="text-sm font-semibold text-ink">
+                    Plano Profissional ativo.
+                    {perfil.dataFimPeriodo ? ` Próxima cobrança em ${formatarData(perfil.dataFimPeriodo)}.` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-ink/60">
                     Ao cancelar, você mantém os benefícios até o fim do período já pago e depois
                     volta ao plano Gratuito, sem novas cobranças.
                   </p>
