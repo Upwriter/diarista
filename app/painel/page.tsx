@@ -18,6 +18,9 @@ interface PerfilRaw {
   atende_todos_bairros: boolean;
   foto_url: string | null;
   galeria: string[] | null;
+  assinatura_status: string | null;
+  data_fim_periodo: string | null;
+  cancelamento_agendado: boolean | null;
   diarista_bairros: unknown;
   diarista_servicos: unknown;
   diarista_imoveis: unknown;
@@ -36,6 +39,9 @@ interface Perfil {
   bairros: string[];
   servicos: string[];
   imoveis: string[];
+  assinaturaStatus: string;
+  dataFimPeriodo: string | null;
+  cancelamentoAgendado: boolean;
 }
 
 // Extrai nomes de forma segura de qualquer estrutura que o Supabase retornar.
@@ -60,6 +66,13 @@ function extrairNomes(relacao: unknown, chave: string): string[] {
   return nomes;
 }
 
+function formatarData(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function normalizar(raw: PerfilRaw): Perfil {
   return {
     id:                   raw.id,
@@ -74,6 +87,9 @@ function normalizar(raw: PerfilRaw): Perfil {
     bairros:  extrairNomes(raw.diarista_bairros,  "bairros"),
     servicos: extrairNomes(raw.diarista_servicos, "servicos"),
     imoveis:  extrairNomes(raw.diarista_imoveis,  "imoveis"),
+    assinaturaStatus:     raw.assinatura_status ?? "sem_assinatura",
+    dataFimPeriodo:       raw.data_fim_periodo ?? null,
+    cancelamentoAgendado: !!raw.cancelamento_agendado,
   };
 }
 
@@ -114,7 +130,7 @@ export default function Painel() {
         .from("diaristas")
         .select(`
           id, nome_completo, whatsapp, whatsapp2, cidade, plano, atende_todos_bairros,
-          foto_url, galeria,
+          foto_url, galeria, assinatura_status, data_fim_periodo, cancelamento_agendado,
           diarista_bairros ( bairros ( nome ) ),
           diarista_servicos ( servicos ( nome ) ),
           diarista_imoveis ( imoveis ( nome ) )
@@ -144,24 +160,47 @@ export default function Painel() {
     carregar();
   }, []);
 
+  // Mensagem de retorno do checkout (apenas visual — a ativação vem do webhook).
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("assinatura");
+    if (p === "sucesso") {
+      setAvisoConta("Pagamento recebido! A ativação do Plano Profissional pode levar alguns instantes.");
+    } else if (p === "cancelada") {
+      setAvisoConta("Checkout cancelado. Nenhuma cobrança foi feita.");
+    }
+    if (p) window.history.replaceState({}, "", "/painel");
+  }, []);
+
   async function sair() {
     await supabase.auth.signOut();
     router.push("/entrar");
   }
 
+  // Inicia o checkout do Stripe (assinatura).
+  async function assinar() {
+    setAvisoConta("");
+    setProcessando(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const j = await res.json();
+      if (!j.ok || !j.url) throw new Error(j.erro || "Erro ao iniciar o pagamento.");
+      window.location.href = j.url; // redireciona ao checkout hospedado do Stripe
+    } catch (e) {
+      setAvisoConta(e instanceof Error ? e.message : "Erro ao iniciar o pagamento.");
+      setProcessando(false);
+    }
+  }
+
+  // Cancela a assinatura ao fim do período (estilo Netflix).
   async function cancelarPlano() {
     setAvisoConta("");
     setProcessando(true);
     try {
-      const res = await fetch("/api/diarista/conta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancelar-plano" }),
-      });
+      const res = await fetch("/api/stripe/cancelar", { method: "POST" });
       const j = await res.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
-      setPerfil((p) => (p ? { ...p, plano: "free" } : p));
-      setAvisoConta("Plano cancelado. Você voltou ao plano Gratuito.");
+      setPerfil((p) => (p ? { ...p, cancelamentoAgendado: true, dataFimPeriodo: j.dataFimPeriodo ?? p.dataFimPeriodo } : p));
+      setAvisoConta("Cancelamento agendado. Você mantém o Plano Profissional até o fim do período pago.");
     } catch (e) {
       setAvisoConta(e instanceof Error ? e.message : "Erro ao cancelar o plano.");
     } finally {
@@ -341,19 +380,56 @@ export default function Painel() {
             </p>
           )}
 
+          {/* Plano Gratuito → oferecer upgrade */}
+          {perfil.plano !== "pago" && (
+            <div className="mb-4 rounded-xl border-2 border-brand bg-brand-light/30 p-4">
+              <p className="text-sm font-bold text-ink">Plano Profissional — R$ 19,90/mês</p>
+              <p className="mt-0.5 text-xs text-ink/60">
+                Perfil completo com fotos, bairros ilimitados, mais serviços e prioridade nas
+                indicações. Sem fidelidade, cancele quando quiser.
+              </p>
+              <button
+                onClick={assinar}
+                disabled={processando}
+                className="mt-3 rounded-full bg-coral px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-coral-dark disabled:opacity-50"
+              >
+                {processando ? "Redirecionando…" : "Assinar Plano Profissional"}
+              </button>
+            </div>
+          )}
+
+          {/* Plano Profissional ativo */}
           {perfil.plano === "pago" && (
             <div className="mb-4 rounded-xl border border-brand-light p-4">
               <p className="text-sm font-semibold text-ink">Plano Profissional</p>
-              <p className="mt-0.5 text-xs text-ink/60">
-                Ao cancelar, você volta ao plano Gratuito e mantém seu perfil no ar.
-              </p>
-              <button
-                onClick={cancelarPlano}
-                disabled={processando}
-                className="mt-3 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand disabled:opacity-50"
-              >
-                Cancelar plano Profissional
-              </button>
+
+              {perfil.assinaturaStatus === "inadimplente" && (
+                <p className="mt-1 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                  Pagamento pendente. Regularize para manter os benefícios.
+                </p>
+              )}
+
+              {perfil.cancelamentoAgendado ? (
+                <p className="mt-1 text-xs text-ink/60">
+                  Cancelamento agendado. Você mantém o Plano Profissional
+                  {perfil.dataFimPeriodo ? ` até ${formatarData(perfil.dataFimPeriodo)}` : " até o fim do período pago"}.
+                  Depois disso, seu perfil volta ao plano Gratuito.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-0.5 text-xs text-ink/60">
+                    Ao cancelar, você mantém os benefícios até o fim do período já pago e depois
+                    volta ao plano Gratuito, sem novas cobranças.
+                  </p>
+                  <button
+                    onClick={cancelarPlano}
+                    disabled={processando}
+                    className="mt-3 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:border-brand hover:text-brand disabled:opacity-50"
+                  >
+                    {processando ? "Processando…" : "Cancelar plano Profissional"}
+                  </button>
+                </>
+              )}
             </div>
           )}
 
