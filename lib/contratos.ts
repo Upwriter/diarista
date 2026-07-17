@@ -1,7 +1,7 @@
 // Contratos (Termos de Adesão) versionados, centralizados. Os marcadores
 // {NOME}, {DOCUMENTO}, {DATA_HORA} e {IP} são preenchidos no momento do aceite.
 
-export const VERSAO_CONTRATO = "2025-07-v1";
+export const VERSAO_CONTRATO = "2025-07-v2";
 
 export type PlanoContrato = "gratuito" | "profissional";
 
@@ -70,16 +70,25 @@ CLÁUSULA 2 — DO QUE A PLATAFORMA OFERECE (PLANO PROFISSIONAL)
    a) perfil completo, com foto principal e galeria de fotos;
    b) até 2 (dois) contatos de WhatsApp;
    c) atuação em bairros ilimitados dentro da(s) cidade(s) atendida(s);
-   d) até 3 (três) tipos de serviço, com possibilidade de serviços adicionais mediante valor complementar informado no ato da contratação;
+   d) até 3 (três) tipos de serviço inclusos na assinatura, com a possibilidade de contratação de serviços adicionais, conforme a Cláusula 3-A;
    e) apresentações a CLIENTES sem o limite do Plano Gratuito;
    f) prioridade na ordem de apresentação de perfis aos CLIENTES, conforme critérios técnicos da plataforma.
 2.2. Os recursos e limites podem ser ajustados pela PLATAFORMA mediante aviso prévio pelos canais oficiais.
 
 CLÁUSULA 3 — DO PREÇO, DA COBRANÇA E DA RECORRÊNCIA
-3.1. O Plano Profissional custa R$ 19,90/mês, cobrado de forma recorrente pelo meio de pagamento escolhido pelo PROFISSIONAL no ato da contratação.
+3.1. O Plano Profissional tem valor-base de R$ 19,90/mês, ao qual se somam os serviços adicionais eventualmente contratados na forma da Cláusula 3-A, cobrado de forma recorrente pelo meio de pagamento escolhido pelo PROFISSIONAL. O valor total mensal vigente é sempre exibido ao PROFISSIONAL antes de qualquer confirmação e fica disponível para consulta em sua área logada.
 3.2. A cobrança é renovada automaticamente a cada período (mensal), até que o PROFISSIONAL solicite o cancelamento.
 3.3. Eventuais reajustes de preço serão comunicados com antecedência mínima de 30 (trinta) dias, pelos canais oficiais, e só se aplicarão aos períodos seguintes.
 3.4. O não pagamento na data de vencimento poderá suspender os benefícios do Plano Profissional, com o perfil retornando à condição de Plano Gratuito ou ficando indisponível, conforme o caso, até a regularização — sem prejuízo do acesso do PROFISSIONAL aos seus próprios dados.
+
+CLÁUSULA 3-A — DOS SERVIÇOS ADICIONAIS
+3-A.1. Além dos 3 (três) tipos de serviço inclusos, o PROFISSIONAL pode contratar serviços adicionais ao valor de R$ 4,90/mês cada, limitados a 2 (dois) adicionais, elevando o valor total mensal a, no máximo, R$ 29,70.
+3-A.2. A contratação de adicionais pode ocorrer no ato da adesão ao Plano Profissional ou, posteriormente, a qualquer tempo, por meio da área logada do PROFISSIONAL, mediante manifestação expressa e inequívoca de vontade.
+3-A.3. Antes de cada confirmação, serão informados de forma clara e prévia: (i) o novo valor total mensal; (ii) o valor proporcional a ser cobrado de imediato, quando aplicável; e (iii) a data da próxima cobrança. A contratação só se efetiva após aceite expresso do PROFISSIONAL.
+3-A.4. A contratação de adicional no curso de um ciclo já pago gera cobrança imediata do valor proporcional aos dias restantes daquele ciclo, passando o valor integral a compor as mensalidades seguintes. Não havendo confirmação do pagamento, o serviço adicional não é habilitado.
+3-A.5. O PROFISSIONAL pode solicitar a remoção de qualquer serviço adicional a qualquer tempo, sem multa. O adicional permanece disponível até o fim do período já pago, não havendo reembolso proporcional, e deixa de ser cobrado a partir do ciclo seguinte.
+3-A.6. Os adicionais são acessórios ao Plano Profissional: encerrada a assinatura por qualquer motivo, cessam automaticamente, sem cobrança posterior.
+3-A.7. Reajustes nos valores dos adicionais seguem a regra da Cláusula 3.3.
 
 CLÁUSULA 4 — DO CANCELAMENTO SEM FIDELIDADE
 4.1. O Plano Profissional NÃO possui fidelidade nem prazo mínimo de permanência.
