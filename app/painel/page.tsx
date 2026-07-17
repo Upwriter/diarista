@@ -5,6 +5,17 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import GerenciarFotos from "@/components/GerenciarFotos";
 import Link from "next/link";
+import { CIDADES, bairrosDaCidade } from "@/lib/bairros";
+
+// Catálogo dos 5 serviços (espelha components/CadastroForm.tsx). Definido aqui
+// para não importar lib/adicionais (que puxa o SDK do Stripe) no cliente.
+const SERVICOS_CATALOGO_UI = [
+  { slug: "diarista",         nome: "Diarista (limpeza comum)" },
+  { slug: "faxineira",        nome: "Faxineira (faxina pesada)" },
+  { slug: "passadeira",       nome: "Passadeira de roupa" },
+  { slug: "limpeza-pos-obra", nome: "Limpeza pós-obra" },
+  { slug: "cozinheira",       nome: "Cozinheira" },
+];
 
 // O Supabase retorna relações aninhadas como objeto único (não array)
 // quando é FK N→1. Usamos `unknown` e normalizamos manualmente abaixo.
@@ -155,6 +166,8 @@ export default function Painel() {
   const [retorno, setRetorno] = useState<"sucesso" | "cancelada" | null>(null);
   const [adic, setAdic] = useState<AdicEstado | null>(null);
   const [confirmAcao, setConfirmAcao] = useState<ConfirmAcao | null>(null);
+  const [atuacao, setAtuacao] = useState<{ servicoAtual: string | null; bairroAtual: string | null; atendeTodos: boolean } | null>(null);
+  const [salvandoAtuacao, setSalvandoAtuacao] = useState(false);
 
   useEffect(() => {
     async function carregar() {
@@ -206,6 +219,41 @@ export default function Painel() {
   useEffect(() => {
     if (perfil?.plano === "pago") carregarAdicionais();
   }, [perfil?.plano]);
+
+  // Estado de atuação do Plano Gratuito (1 serviço, 1 bairro).
+  async function carregarAtuacao() {
+    try {
+      const res = await fetch("/api/diarista/atuacao");
+      const j = await res.json();
+      if (j.ok) setAtuacao({ servicoAtual: j.servicoAtual, bairroAtual: j.bairroAtual, atendeTodos: j.atendeTodos });
+    } catch { /* silencioso */ }
+  }
+  useEffect(() => {
+    if (perfil && perfil.plano !== "pago") carregarAtuacao();
+  }, [perfil?.plano]);
+
+  // Troca o único serviço OU o único bairro (limites garantidos no servidor).
+  async function trocarAtuacao(tipo: "servico" | "bairro", slug: string) {
+    setSalvandoAtuacao(true);
+    setAvisoConta("");
+    try {
+      const res = await fetch("/api/diarista/atuacao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, slug }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.erro || "Erro");
+      setAtuacao((a) => a ? {
+        ...a,
+        ...(tipo === "servico" ? { servicoAtual: slug } : { bairroAtual: slug, atendeTodos: false }),
+      } : a);
+    } catch (e) {
+      setAvisoConta(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally {
+      setSalvandoAtuacao(false);
+    }
+  }
 
   // Abre o modal de confirmação com o novo valor mensal calculado.
   // Base de cálculo = serviços que contam para o PRÓXIMO ciclo (ativos e sem
@@ -446,12 +494,66 @@ export default function Painel() {
         </Secao>
 
         {perfil.plano !== "pago" ? (
-          <Secao titulo="Serviços que você oferece">
-            <div className="flex flex-wrap gap-2">
-              {perfil.servicos.length > 0
-                ? perfil.servicos.map((s) => <Badge key={s}>{s}</Badge>)
-                : <p className="text-sm text-ink/40">Nenhum serviço cadastrado.</p>}
-            </div>
+          <Secao titulo="Seus dados de atuação">
+            <p className="mb-4 text-xs text-ink/60">
+              No plano <strong>Gratuito</strong> você atua com <strong>1 serviço</strong> e{" "}
+              <strong>1 bairro</strong>. Pode trocar quando quiser aqui embaixo. O{" "}
+              <strong>Plano Profissional</strong> permite até 3 serviços (com adicionais) e bairros
+              ilimitados dentro da sua cidade.
+            </p>
+            {!atuacao ? (
+              <p className="text-sm text-ink/40">Carregando…</p>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-ink">Seu serviço</label>
+                  <select
+                    value={atuacao.servicoAtual ?? ""}
+                    disabled={salvandoAtuacao}
+                    onChange={(e) => e.target.value && trocarAtuacao("servico", e.target.value)}
+                    className="w-full rounded-xl border border-brand-light bg-white px-4 py-3 text-sm text-ink focus:border-brand focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="" disabled>Selecione um serviço</option>
+                    {SERVICOS_CATALOGO_UI.map((s) => (
+                      <option key={s.slug} value={s.slug}>{s.nome}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-ink">
+                    Seu bairro em {perfil.cidade}
+                  </label>
+                  {atuacao.atendeTodos && !atuacao.bairroAtual && (
+                    <p className="mb-1.5 text-xs text-ink/50">
+                      Seu perfil atende todos os bairros hoje. Escolher um bairro abaixo passa a
+                      restringir seu atendimento a esse bairro.
+                    </p>
+                  )}
+                  <select
+                    value={atuacao.bairroAtual ?? ""}
+                    disabled={salvandoAtuacao}
+                    onChange={(e) => e.target.value && trocarAtuacao("bairro", e.target.value)}
+                    className="w-full rounded-xl border border-brand-light bg-white px-4 py-3 text-sm text-ink focus:border-brand focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="" disabled>Selecione um bairro</option>
+                    {bairrosDaCidade(CIDADES.find((c) => c.nome === perfil.cidade)?.slug ?? "sao-paulo").map((b) => (
+                      <option key={b.slug} value={b.slug}>{b.nome}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {salvandoAtuacao && <p className="text-xs text-ink/40">Salvando…</p>}
+
+                <button
+                  onClick={assinar}
+                  disabled={processando}
+                  className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-coral-dark disabled:opacity-50"
+                >
+                  {processando ? "Redirecionando…" : "Assinar Plano Profissional"}
+                </button>
+              </div>
+            )}
           </Secao>
         ) : (
           <Secao titulo="Serviços do seu plano">
