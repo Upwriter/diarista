@@ -64,7 +64,7 @@ interface AdicEstado {
   dataFimPeriodo: string | null;
 }
 interface ConfirmAcao {
-  tipo: "adicionar" | "remover";
+  tipo: "adicionar" | "remover" | "reativar";
   slug: string;
   nome: string;
   ehAdicional: boolean; // (adicionar) vira serviço pago?
@@ -208,29 +208,35 @@ export default function Painel() {
   }, [perfil?.plano]);
 
   // Abre o modal de confirmação com o novo valor mensal calculado.
-  function pedirConfirmacao(tipo: "adicionar" | "remover", slug: string, nome: string) {
+  // Base de cálculo = serviços que contam para o PRÓXIMO ciclo (ativos e sem
+  // remoção agendada) — mesma semântica do servidor.
+  function pedirConfirmacao(tipo: "adicionar" | "remover" | "reativar", slug: string, nome: string) {
     if (!adic) return;
     setAvisoConta("");
-    const ativos = adic.servicos.filter((s) => s.ativo).length;
-    if (tipo === "adicionar") {
-      const novoAdic = Math.max(0, ativos + 1 - adic.incluidos);
-      if (novoAdic > adic.maxAdicionais) {
-        setAvisoConta(`Você já atingiu o limite de ${adic.maxAdicionais} serviços adicionais.`);
-        return;
-      }
-      const ehAdicional = novoAdic > adic.adicionaisProxCiclo;
-      const cobraAgora = novoAdic > adic.adicionaisPagos;
-      setConfirmAcao({
-        tipo, slug, nome, ehAdicional, cobraAgora,
-        novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
-      });
-    } else {
-      const novoAdic = Math.max(0, ativos - 1 - adic.incluidos);
+    const proxCiclo = adic.servicos.filter((s) => s.ativo && !s.remocaoAgendadaEm).length;
+
+    if (tipo === "remover") {
+      const novoAdic = Math.max(0, proxCiclo - 1 - adic.incluidos);
       setConfirmAcao({
         tipo, slug, nome, ehAdicional: false, cobraAgora: false,
         novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
       });
+      return;
     }
+
+    // adicionar (novo) ou reativar (desfazer remoção agendada): ambos somam +1
+    // ao próximo ciclo. Reativar nunca cobra (novoAdic ≤ adicionais_pagos).
+    const novoAdic = Math.max(0, proxCiclo + 1 - adic.incluidos);
+    if (novoAdic > adic.maxAdicionais) {
+      setAvisoConta(`Você já atingiu o limite de ${adic.maxAdicionais} serviços adicionais.`);
+      return;
+    }
+    const ehAdicional = proxCiclo >= adic.incluidos;
+    const cobraAgora = novoAdic > adic.adicionaisPagos;
+    setConfirmAcao({
+      tipo, slug, nome, ehAdicional, cobraAgora,
+      novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
+    });
   }
 
   // Efetiva a ação (adicionar/remover) após confirmação explícita.
@@ -239,10 +245,12 @@ export default function Painel() {
     setProcessando(true);
     setAvisoConta("");
     try {
+      // "reativar" usa a mesma ação de servidor "adicionar" (que restaura sem cobrar).
+      const action = confirmAcao.tipo === "reativar" ? "adicionar" : confirmAcao.tipo;
       const res = await fetch("/api/stripe/adicionais", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: confirmAcao.tipo, slug: confirmAcao.slug }),
+        body: JSON.stringify({ action, slug: confirmAcao.slug }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
@@ -479,7 +487,16 @@ export default function Painel() {
                           </p>
                         )}
                       </div>
-                      {s.ativo ? (
+                      {s.ativo && s.remocaoAgendadaEm ? (
+                        // Remoção agendada → permitir desfazer (sem nova cobrança).
+                        <button
+                          onClick={() => pedirConfirmacao("reativar", s.slug, s.nome)}
+                          disabled={processando}
+                          className="shrink-0 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-paper transition-colors hover:bg-brand-dark disabled:opacity-50"
+                        >
+                          Reativar
+                        </button>
+                      ) : s.ativo ? (
                         <button
                           onClick={() => pedirConfirmacao("remover", s.slug, s.nome)}
                           disabled={processando}
@@ -652,23 +669,31 @@ export default function Painel() {
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {confirmAcao.tipo === "adicionar" ? (
+            {confirmAcao.tipo !== "remover" ? (
               <>
                 <h3 className="font-display text-xl font-bold text-ink">
-                  Adicionar “{confirmAcao.nome}”
+                  {confirmAcao.tipo === "reativar" ? "Reativar" : "Adicionar"} “{confirmAcao.nome}”
                 </h3>
+                {confirmAcao.tipo === "reativar" && (
+                  <p className="mt-3 text-sm text-ink/70">
+                    Isso <strong>desfaz a remoção agendada</strong>. Como você já pagou por este
+                    serviço neste ciclo, <strong>não haverá nova cobrança</strong>.
+                  </p>
+                )}
                 {confirmAcao.ehAdicional ? (
                   <div className="mt-3 space-y-2 text-sm text-ink/70">
-                    {confirmAcao.cobraAgora ? (
-                      <p>
-                        Este é um <strong>serviço adicional</strong>. Você será cobrado agora o
-                        valor <strong>proporcional aos dias restantes</strong> deste ciclo.
-                      </p>
-                    ) : (
-                      <p>
-                        Você já pagou por este slot adicional neste ciclo, então{" "}
-                        <strong>não haverá nova cobrança agora</strong>.
-                      </p>
+                    {confirmAcao.tipo === "adicionar" && (
+                      confirmAcao.cobraAgora ? (
+                        <p>
+                          Este é um <strong>serviço adicional</strong>. Você será cobrado agora o
+                          valor <strong>proporcional aos dias restantes</strong> deste ciclo.
+                        </p>
+                      ) : (
+                        <p>
+                          Você já pagou por este slot adicional neste ciclo, então{" "}
+                          <strong>não haverá nova cobrança agora</strong>.
+                        </p>
+                      )
                     )}
                     <p>
                       A partir da próxima renovação, sua mensalidade passa a ser{" "}
