@@ -45,34 +45,30 @@ export async function POST(req: NextRequest) {
 
   // Serviços adicionais: cada serviço além dos 3 inclusos entra no checkout
   // como item recorrente (R$ 4,90/mês), respeitando o limite de 2.
+  // NOTA: diarista_servicos tem PK composta (diarista_id, servico_id) e NÃO tem
+  // coluna "id" — contar por "id" retorna HTTP 400.
   const { count: totalServicos, error: countErr } = await supabaseAdmin
     .from("diarista_servicos")
-    .select("id", { count: "exact", head: true })
+    .select("servico_id", { count: "exact", head: true })
     .eq("diarista_id", diarista.id);
+
+  // NÃO engolir a falha: se não sabemos quantos serviços a diarista tem, seguir
+  // assumindo 0 adicionais cobraria a MENOS e liberaria serviços não pagos.
+  if (countErr) {
+    return erro("Não foi possível calcular os serviços da assinatura. Tente novamente.", 500);
+  }
+
   const qtdAdicionais = Math.min(MAX_ADICIONAIS, adicionaisNecessarios(totalServicos ?? 0));
-
-  // Lê o price direto de process.env no request (evita qualquer dúvida sobre
-  // valor "congelado" em tempo de módulo). Cai para a constante como reserva.
-  const priceAdicional = process.env.STRIPE_PRICE_ADICIONAL || PRICE_ADICIONAL;
-
-  // LOG TEMPORÁRIO DE DIAGNÓSTICO (aparece nos logs da Vercel). Remover depois.
-  console.log("[checkout] diagnostico", JSON.stringify({
-    diaristaId: diarista.id,
-    totalServicos,
-    countErr: countErr?.message ?? null,
-    qtdAdicionais,
-    priceAdicionalDefinido: !!priceAdicional,
-    priceAdicionalLen: priceAdicional.length,
-    priceProfissionalDefinido: !!PRICE_PROFISSIONAL,
-  }));
+  const priceAdicional = PRICE_ADICIONAL;
 
   const lineItems: { price: string; quantity: number }[] = [
     { price: PRICE_PROFISSIONAL, quantity: 1 },
   ];
-  if (qtdAdicionais > 0 && priceAdicional) {
+  if (qtdAdicionais > 0) {
+    if (!priceAdicional) {
+      return erro("Preço do serviço adicional não configurado.", 500);
+    }
     lineItems.push({ price: priceAdicional, quantity: qtdAdicionais });
-  } else if (qtdAdicionais > 0 && !priceAdicional) {
-    console.error("[checkout] adicional PULADO: qtdAdicionais>0 mas STRIPE_PRICE_ADICIONAL vazio no runtime.");
   }
 
   const origin = req.headers.get("origin") || SITE.url;

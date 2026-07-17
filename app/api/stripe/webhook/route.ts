@@ -92,7 +92,7 @@ async function renovarCiclo(customer: string) {
 
   const { count } = await supabaseAdmin
     .from("diarista_servicos")
-    .select("id", { count: "exact", head: true })
+    .select("servico_id", { count: "exact", head: true })
     .eq("diarista_id", diarista.id);
   const pagos = Math.max(0, (count ?? 0) - 3);
   await supabaseAdmin.from("diaristas").update({ adicionais_pagos: pagos }).eq("id", diarista.id);

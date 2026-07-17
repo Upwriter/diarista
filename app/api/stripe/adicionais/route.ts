@@ -16,8 +16,9 @@ function erro(msg: string, status = 400) {
   return NextResponse.json({ ok: false, erro: msg }, { status });
 }
 
+// diarista_servicos tem PK composta (diarista_id, servico_id) e NÃO tem coluna
+// "id" — a chave única por diarista é o servico_id.
 interface LinhaServico {
-  id: string;
   servico_id: string;
   remocao_agendada_em: string | null;
   slug: string;
@@ -35,14 +36,13 @@ async function carregar(userId: string) {
 
   const { data: rows } = await supabaseAdmin
     .from("diarista_servicos")
-    .select("id, servico_id, remocao_agendada_em, servicos ( slug, nome )")
+    .select("servico_id, remocao_agendada_em, servicos ( slug, nome )")
     .eq("diarista_id", diarista.id)
-    .order("id", { ascending: true });
+    .order("servico_id", { ascending: true });
 
   const servicos: LinhaServico[] = (rows ?? []).map((r) => {
     const s = r.servicos as unknown as { slug: string; nome: string } | null;
     return {
-      id: r.id as string,
       servico_id: r.servico_id as string,
       remocao_agendada_em: (r.remocao_agendada_em as string | null) ?? null,
       slug: s?.slug ?? "",
@@ -73,11 +73,11 @@ function montarEstado(
   const adicionaisProxCiclo = adicionaisNecessarios(proxCiclo);
 
   // Marca de exibição: entre os serviços ativos (por ordem), os além de 3 são "extras".
-  const idsAtivos = new Set(ativos.map((s) => s.id));
+  const idsAtivos = new Set(ativos.map((s) => s.servico_id));
   let contadorAtivo = 0;
   const lista = SERVICOS_CATALOGO.map((cat) => {
     const linha = servicos.find((s) => s.slug === cat.slug);
-    const ativo = !!linha && idsAtivos.has(linha.id);
+    const ativo = !!linha && idsAtivos.has(linha.servico_id);
     let ehAdicional = false;
     if (ativo) {
       contadorAtivo++;
@@ -184,7 +184,8 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin
         .from("diarista_servicos")
         .update({ remocao_agendada_em: null })
-        .eq("id", linha.id);
+        .eq("diarista_id", diarista.id)
+        .eq("servico_id", linha.servico_id);
     } else {
       const { data: srv } = await supabaseAdmin
         .from("servicos").select("id").eq("slug", slug).maybeSingle();
@@ -232,10 +233,15 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from("diarista_servicos")
       .update({ remocao_agendada_em: fim })
-      .eq("id", linha.id);
+      .eq("diarista_id", diarista.id)
+      .eq("servico_id", linha.servico_id);
   } else {
     // Sem data de fim conhecida → remove imediatamente.
-    await supabaseAdmin.from("diarista_servicos").delete().eq("id", linha.id);
+    await supabaseAdmin
+      .from("diarista_servicos")
+      .delete()
+      .eq("diarista_id", diarista.id)
+      .eq("servico_id", linha.servico_id);
   }
 
   await supabaseAdmin
