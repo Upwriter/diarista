@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { stripe, PRICE_ADICIONAL } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
@@ -19,8 +19,16 @@ function fimDoPeriodo(sub: Stripe.Subscription): number | null {
   return sub.items?.data?.[0]?.current_period_end ?? null;
 }
 
+// Item do "Serviço adicional" dentro da assinatura (se existir).
+function itemAdicional(sub: Stripe.Subscription): Stripe.SubscriptionItem | undefined {
+  return sub.items?.data?.find((i) => i.price?.id === PRICE_ADICIONAL);
+}
+
 // Atualiza a diarista a partir do estado de uma assinatura.
-async function aplicarAssinatura(sub: Stripe.Subscription) {
+// definirPagos=true sincroniza adicionais_pagos com a quantity atual do adicional
+// (usar só na ATIVAÇÃO/renovação — não em updates comuns, senão uma remoção
+// agendada abaixaria o "pico pago" e permitiria cobrança dupla no re-adicionar).
+async function aplicarAssinatura(sub: Stripe.Subscription, definirPagos = false) {
   const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
 
   let assinaturaStatus = "ativa";
@@ -48,17 +56,46 @@ async function aplicarAssinatura(sub: Stripe.Subscription) {
       plano = "free";
   }
 
+  const itemAdic = itemAdicional(sub);
+
   const update: Record<string, unknown> = {
     stripe_subscription_id: sub.id,
     assinatura_status: assinaturaStatus,
     plano,
     data_fim_periodo: iso(fimDoPeriodo(sub)),
     cancelamento_agendado: !!sub.cancel_at_period_end,
+    stripe_item_adicional_id: itemAdic?.id ?? null,
   };
   const inicio = iso(sub.start_date);
   if (inicio) update.data_inicio_assinatura = inicio;
+  if (definirPagos) update.adicionais_pagos = itemAdic?.quantity ?? 0;
 
   await supabaseAdmin.from("diaristas").update(update).eq("stripe_customer_id", customer);
+}
+
+// Na renovação do ciclo: remove os adicionais que estavam com remoção agendada
+// (o acesso valia só até o fim do período pago) e reajusta o pico de pagos.
+async function renovarCiclo(customer: string) {
+  const { data: diarista } = await supabaseAdmin
+    .from("diaristas")
+    .select("id")
+    .eq("stripe_customer_id", customer)
+    .maybeSingle();
+  if (!diarista) return;
+
+  await supabaseAdmin
+    .from("diarista_servicos")
+    .delete()
+    .eq("diarista_id", diarista.id)
+    .not("remocao_agendada_em", "is", null)
+    .lte("remocao_agendada_em", new Date().toISOString());
+
+  const { count } = await supabaseAdmin
+    .from("diarista_servicos")
+    .select("id", { count: "exact", head: true })
+    .eq("diarista_id", diarista.id);
+  const pagos = Math.max(0, (count ?? 0) - 3);
+  await supabaseAdmin.from("diaristas").update({ adicionais_pagos: pagos }).eq("id", diarista.id);
 }
 
 export async function POST(req: NextRequest) {
@@ -86,11 +123,14 @@ export async function POST(req: NextRequest) {
         if (session.subscription) {
           const subId = typeof session.subscription === "string" ? session.subscription : session.subscription.id;
           const sub = await stripe.subscriptions.retrieve(subId);
-          await aplicarAssinatura(sub);
+          await aplicarAssinatura(sub, true); // ativação → sincroniza adicionais_pagos
         }
         break;
       }
-      case "customer.subscription.created":
+      case "customer.subscription.created": {
+        await aplicarAssinatura(evento.data.object as Stripe.Subscription, true);
+        break;
+      }
       case "customer.subscription.updated": {
         await aplicarAssinatura(evento.data.object as Stripe.Subscription);
         break;
@@ -106,6 +146,15 @@ export async function POST(req: NextRequest) {
             cancelamento_agendado: false,
           })
           .eq("stripe_customer_id", customer);
+        break;
+      }
+      case "invoice.paid": {
+        // Renovação do ciclo: aplica as remoções de adicionais agendadas.
+        const inv = evento.data.object as Stripe.Invoice & { billing_reason?: string };
+        const customer = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
+        if (customer && inv.billing_reason === "subscription_cycle") {
+          await renovarCiclo(customer);
+        }
         break;
       }
       case "invoice.payment_failed": {

@@ -44,6 +44,38 @@ interface Perfil {
   cancelamentoAgendado: boolean;
 }
 
+// Estado dos serviços/adicionais (vem de GET /api/stripe/adicionais).
+interface ServicoLinha {
+  slug: string;
+  nome: string;
+  ativo: boolean;
+  adicional: boolean;
+  remocaoAgendadaEm: string | null;
+}
+interface AdicEstado {
+  servicos: ServicoLinha[];
+  incluidos: number;
+  maxAdicionais: number;
+  adicionaisProxCiclo: number;
+  adicionaisPagos: number;
+  valorAdicional: number;
+  valorPlano: number;
+  valorMensal: number;
+  dataFimPeriodo: string | null;
+}
+interface ConfirmAcao {
+  tipo: "adicionar" | "remover";
+  slug: string;
+  nome: string;
+  ehAdicional: boolean; // (adicionar) vira serviço pago?
+  cobraAgora: boolean;  // (adicionar) gera cobrança proporcional agora?
+  novoValorMensal: number;
+}
+
+function formatarReais(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 // Extrai nomes de forma segura de qualquer estrutura que o Supabase retornar.
 // Suporta: [{bairros:{nome}}, ...] ou [{bairros:[{nome}]}, ...] ou qualquer variação.
 function extrairNomes(relacao: unknown, chave: string): string[] {
@@ -121,6 +153,8 @@ export default function Painel() {
   const [processando, setProcessando] = useState(false);
   const [avisoConta, setAvisoConta] = useState("");
   const [retorno, setRetorno] = useState<"sucesso" | "cancelada" | null>(null);
+  const [adic, setAdic] = useState<AdicEstado | null>(null);
+  const [confirmAcao, setConfirmAcao] = useState<ConfirmAcao | null>(null);
 
   useEffect(() => {
     async function carregar() {
@@ -160,6 +194,67 @@ export default function Painel() {
     }
     carregar();
   }, []);
+
+  // Carrega o estado dos serviços/adicionais (só faz sentido no Plano Profissional).
+  async function carregarAdicionais() {
+    try {
+      const res = await fetch("/api/stripe/adicionais");
+      const j = await res.json();
+      if (j.ok) setAdic(j as AdicEstado);
+    } catch { /* silencioso */ }
+  }
+  useEffect(() => {
+    if (perfil?.plano === "pago") carregarAdicionais();
+  }, [perfil?.plano]);
+
+  // Abre o modal de confirmação com o novo valor mensal calculado.
+  function pedirConfirmacao(tipo: "adicionar" | "remover", slug: string, nome: string) {
+    if (!adic) return;
+    setAvisoConta("");
+    const ativos = adic.servicos.filter((s) => s.ativo).length;
+    if (tipo === "adicionar") {
+      const novoAdic = Math.max(0, ativos + 1 - adic.incluidos);
+      if (novoAdic > adic.maxAdicionais) {
+        setAvisoConta(`Você já atingiu o limite de ${adic.maxAdicionais} serviços adicionais.`);
+        return;
+      }
+      const ehAdicional = novoAdic > adic.adicionaisProxCiclo;
+      const cobraAgora = novoAdic > adic.adicionaisPagos;
+      setConfirmAcao({
+        tipo, slug, nome, ehAdicional, cobraAgora,
+        novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
+      });
+    } else {
+      const novoAdic = Math.max(0, ativos - 1 - adic.incluidos);
+      setConfirmAcao({
+        tipo, slug, nome, ehAdicional: false, cobraAgora: false,
+        novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
+      });
+    }
+  }
+
+  // Efetiva a ação (adicionar/remover) após confirmação explícita.
+  async function executarAcao() {
+    if (!confirmAcao) return;
+    setProcessando(true);
+    setAvisoConta("");
+    try {
+      const res = await fetch("/api/stripe/adicionais", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: confirmAcao.tipo, slug: confirmAcao.slug }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.erro || "Erro");
+      setAdic(j as AdicEstado);
+      setConfirmAcao(null);
+    } catch (e) {
+      setAvisoConta(e instanceof Error ? e.message : "Erro ao atualizar os serviços.");
+      setConfirmAcao(null);
+    } finally {
+      setProcessando(false);
+    }
+  }
 
   // Retorno do checkout (apenas visual — a ativação real vem do webhook).
   useEffect(() => {
@@ -342,13 +437,72 @@ export default function Painel() {
           </dl>
         </Secao>
 
-        <Secao titulo="Serviços que você oferece">
-          <div className="flex flex-wrap gap-2">
-            {perfil.servicos.length > 0
-              ? perfil.servicos.map((s) => <Badge key={s}>{s}</Badge>)
-              : <p className="text-sm text-ink/40">Nenhum serviço cadastrado.</p>}
-          </div>
-        </Secao>
+        {perfil.plano !== "pago" ? (
+          <Secao titulo="Serviços que você oferece">
+            <div className="flex flex-wrap gap-2">
+              {perfil.servicos.length > 0
+                ? perfil.servicos.map((s) => <Badge key={s}>{s}</Badge>)
+                : <p className="text-sm text-ink/40">Nenhum serviço cadastrado.</p>}
+            </div>
+          </Secao>
+        ) : (
+          <Secao titulo="Serviços do seu plano">
+            {!adic ? (
+              <p className="text-sm text-ink/40">Carregando serviços…</p>
+            ) : (
+              <>
+                <p className="mb-3 text-xs text-ink/60">
+                  Seu plano inclui até <strong>{adic.incluidos} serviços</strong>. Cada serviço
+                  adicional custa <strong>{formatarReais(adic.valorAdicional)}/mês</strong>
+                  {" "}(máximo de {adic.maxAdicionais}). Mensalidade atual:{" "}
+                  <strong>{formatarReais(adic.valorMensal)}/mês</strong>.
+                </p>
+                <div className="space-y-2">
+                  {adic.servicos.map((s) => (
+                    <div
+                      key={s.slug}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-brand-light px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-ink">{s.nome}</p>
+                        {s.ativo && s.adicional && (
+                          <p className="text-xs text-coral">
+                            Adicional · {formatarReais(adic.valorAdicional)}/mês
+                          </p>
+                        )}
+                        {s.ativo && !s.adicional && (
+                          <p className="text-xs text-brand">Incluído no plano</p>
+                        )}
+                        {s.remocaoAgendadaEm && (
+                          <p className="text-xs text-ink/50">
+                            Sai em {formatarData(s.remocaoAgendadaEm)}
+                          </p>
+                        )}
+                      </div>
+                      {s.ativo ? (
+                        <button
+                          onClick={() => pedirConfirmacao("remover", s.slug, s.nome)}
+                          disabled={processando}
+                          className="shrink-0 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/60 transition-colors hover:border-red-300 hover:text-red-500 disabled:opacity-50"
+                        >
+                          Remover
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => pedirConfirmacao("adicionar", s.slug, s.nome)}
+                          disabled={processando}
+                          className="shrink-0 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-paper transition-colors hover:bg-brand-dark disabled:opacity-50"
+                        >
+                          Adicionar
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </Secao>
+        )}
 
         <Secao titulo="Tipos de imóvel">
           <div className="flex flex-wrap gap-2">
@@ -487,6 +641,90 @@ export default function Painel() {
           </div>
         </Secao>
       </div>
+
+      {/* Modal de confirmação de adicionar/remover serviço */}
+      {confirmAcao && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !processando && setConfirmAcao(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {confirmAcao.tipo === "adicionar" ? (
+              <>
+                <h3 className="font-display text-xl font-bold text-ink">
+                  Adicionar “{confirmAcao.nome}”
+                </h3>
+                {confirmAcao.ehAdicional ? (
+                  <div className="mt-3 space-y-2 text-sm text-ink/70">
+                    {confirmAcao.cobraAgora ? (
+                      <p>
+                        Este é um <strong>serviço adicional</strong>. Você será cobrado agora o
+                        valor <strong>proporcional aos dias restantes</strong> deste ciclo.
+                      </p>
+                    ) : (
+                      <p>
+                        Você já pagou por este slot adicional neste ciclo, então{" "}
+                        <strong>não haverá nova cobrança agora</strong>.
+                      </p>
+                    )}
+                    <p>
+                      A partir da próxima renovação, sua mensalidade passa a ser{" "}
+                      <strong className="text-ink">
+                        {formatarReais(confirmAcao.novoValorMensal)}/mês
+                      </strong>.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-ink/70">
+                    Este serviço está <strong>incluído no seu plano</strong>, sem custo adicional.
+                    Sua mensalidade continua {formatarReais(confirmAcao.novoValorMensal)}/mês.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <h3 className="font-display text-xl font-bold text-ink">
+                  Remover “{confirmAcao.nome}”
+                </h3>
+                <div className="mt-3 space-y-2 text-sm text-ink/70">
+                  <p>
+                    O serviço continua disponível no seu perfil{" "}
+                    {adic?.dataFimPeriodo
+                      ? <>até <strong>{formatarData(adic.dataFimPeriodo)}</strong> (fim do período já pago)</>
+                      : "até o fim do período já pago"}
+                    . <strong>Não há reembolso</strong> proporcional.
+                  </p>
+                  <p>
+                    Depois dessa data, sua mensalidade passa a ser{" "}
+                    <strong className="text-ink">
+                      {formatarReais(confirmAcao.novoValorMensal)}/mês
+                    </strong>.
+                  </p>
+                </div>
+              </>
+            )}
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                onClick={() => setConfirmAcao(null)}
+                disabled={processando}
+                className="rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink/70 transition-colors hover:border-ink/30 disabled:opacity-50"
+              >
+                Voltar
+              </button>
+              <button
+                onClick={executarAcao}
+                disabled={processando}
+                className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-brand-dark disabled:opacity-50"
+              >
+                {processando ? "Processando…" : "Confirmar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmação de exclusão */}
       {confirmarExcluir && (
