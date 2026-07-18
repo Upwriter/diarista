@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import GerenciarFotos from "@/components/GerenciarFotos";
 import AjustePlano from "@/components/AjustePlano";
+import GerenciarBairros from "@/components/GerenciarBairros";
 import Link from "next/link";
 import { CIDADES, bairrosDaCidade } from "@/lib/bairros";
 
@@ -689,7 +690,9 @@ export default function Painel() {
         </Secao>
 
         <Secao titulo="Bairros que você atende">
-          {perfil.atende_todos_bairros ? (
+          {perfil.plano === "pago" ? (
+            <GerenciarBairros />
+          ) : perfil.atende_todos_bairros ? (
             <p className="text-sm font-semibold text-brand">
               Todos os bairros de {perfil.cidade}
             </p>
