@@ -8,14 +8,31 @@ export const runtime = "nodejs";
 // Catálogo dos 5 serviços (espelha components/CadastroForm.tsx e a tabela servicos).
 const SERVICOS_SLUGS = ["diarista", "faxineira", "passadeira", "limpeza-pos-obra", "cozinheira"];
 
+// Troca limitada a 1 vez a cada 60 dias no Gratuito (relógios independentes).
+const COOLDOWN_DIAS = 60;
+const COOLDOWN_MS = COOLDOWN_DIAS * 24 * 60 * 60 * 1000;
+
 function erro(msg: string, status = 400) {
   return NextResponse.json({ ok: false, erro: msg }, { status });
+}
+
+// Se ainda está no cooldown, retorna a data em que poderá trocar de novo; senão null.
+function proximaTroca(ultima: string | null): string | null {
+  if (!ultima) return null;
+  const proxima = new Date(ultima).getTime() + COOLDOWN_MS;
+  return proxima > Date.now() ? new Date(proxima).toISOString() : null;
+}
+
+function dataBR(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo",
+  });
 }
 
 async function carregarDiarista(userId: string) {
   const { data } = await supabaseAdmin
     .from("diaristas")
-    .select("id, plano, cidade, excluida, atende_todos_bairros")
+    .select("id, plano, cidade, excluida, atende_todos_bairros, ultima_troca_servico_em, ultima_troca_bairro_em")
     .eq("user_id", userId)
     .maybeSingle();
   return data;
@@ -51,6 +68,10 @@ export async function GET() {
     servicoAtual,
     bairroAtual,
     atendeTodos: !!diarista.atende_todos_bairros,
+    // Se preenchido, é a data (ISO) em que a diarista poderá trocar de novo.
+    proximaTrocaServico: proximaTroca(diarista.ultima_troca_servico_em as string | null),
+    proximaTrocaBairro: proximaTroca(diarista.ultima_troca_bairro_em as string | null),
+    cooldownDias: COOLDOWN_DIAS,
   });
 }
 
@@ -79,6 +100,12 @@ export async function POST(req: NextRequest) {
   if (tipo === "servico") {
     if (!SERVICOS_SLUGS.includes(slug)) return erro("Serviço inválido.");
 
+    // Cooldown de 60 dias (relógio do serviço). Validação no SERVIDOR.
+    const bloqueio = proximaTroca(diarista.ultima_troca_servico_em as string | null);
+    if (bloqueio) {
+      return erro(`No plano Gratuito, você pode trocar de serviço a cada ${COOLDOWN_DIAS} dias. Você poderá trocar seu serviço novamente em ${dataBR(bloqueio)}.`, 429);
+    }
+
     const { data: srv } = await supabaseAdmin
       .from("servicos").select("id").eq("slug", slug).maybeSingle();
     if (!srv) return erro("Serviço não encontrado no catálogo.", 500);
@@ -90,10 +117,23 @@ export async function POST(req: NextRequest) {
       .insert({ diarista_id: diarista.id, servico_id: srv.id });
     if (insErr) return erro("Erro ao salvar o serviço.", 500);
 
-    return NextResponse.json({ ok: true, servicoAtual: slug });
+    // Inicia/renova o relógio do serviço (timestamp do servidor).
+    const agora = new Date().toISOString();
+    await supabaseAdmin
+      .from("diaristas")
+      .update({ ultima_troca_servico_em: agora })
+      .eq("id", diarista.id);
+
+    return NextResponse.json({ ok: true, servicoAtual: slug, proximaTrocaServico: new Date(new Date(agora).getTime() + COOLDOWN_MS).toISOString() });
   }
 
   // ── Bairro (exatamente 1) ─────────────────────────────────────────────────
+  // Cooldown de 60 dias (relógio do bairro, independente do serviço).
+  const bloqueioBairro = proximaTroca(diarista.ultima_troca_bairro_em as string | null);
+  if (bloqueioBairro) {
+    return erro(`No plano Gratuito, você pode trocar de bairro a cada ${COOLDOWN_DIAS} dias. Você poderá trocar seu bairro novamente em ${dataBR(bloqueioBairro)}.`, 429);
+  }
+
   const cidade = CIDADES.find((c) => c.nome === diarista.cidade);
   if (!cidade) return erro("Cidade do perfil não reconhecida.", 500);
   if (!getBairro(cidade.slug, slug)) return erro("Bairro inválido para a sua cidade.");
@@ -113,10 +153,16 @@ export async function POST(req: NextRequest) {
     .insert({ diarista_id: diarista.id, bairro_id: bairro.id });
   if (insErr) return erro("Erro ao salvar o bairro.", 500);
 
+  const agora = new Date().toISOString();
   await supabaseAdmin
     .from("diaristas")
-    .update({ atende_todos_bairros: false })
+    .update({ atende_todos_bairros: false, ultima_troca_bairro_em: agora })
     .eq("id", diarista.id);
 
-  return NextResponse.json({ ok: true, bairroAtual: slug, atendeTodos: false });
+  return NextResponse.json({
+    ok: true,
+    bairroAtual: slug,
+    atendeTodos: false,
+    proximaTrocaBairro: new Date(new Date(agora).getTime() + COOLDOWN_MS).toISOString(),
+  });
 }

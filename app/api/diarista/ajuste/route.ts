@@ -110,6 +110,9 @@ export async function POST(req: NextRequest) {
   await supabaseAdmin.from("diarista_bairros").insert({ diarista_id: diarista.id, bairro_id: bai.id });
 
   // Ajusta os dados da diarista aos limites do Gratuito e REATIVA o perfil.
+  // Esta definição inicial NÃO é bloqueada pelo cooldown; ela apenas INICIA os
+  // relógios de 60 dias (a partir daqui valem as regras de troca do Gratuito).
+  const agora = new Date().toISOString();
   await supabaseAdmin
     .from("diaristas")
     .update({
@@ -118,6 +121,8 @@ export async function POST(req: NextRequest) {
       atende_todos_bairros: false,
       ativo: true,
       ajuste_pendente: false,
+      ultima_troca_servico_em: agora,
+      ultima_troca_bairro_em: agora,
     })
     .eq("id", diarista.id);
 

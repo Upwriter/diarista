@@ -171,7 +171,7 @@ export default function Painel() {
   const [retorno, setRetorno] = useState<"sucesso" | "cancelada" | null>(null);
   const [adic, setAdic] = useState<AdicEstado | null>(null);
   const [confirmAcao, setConfirmAcao] = useState<ConfirmAcao | null>(null);
-  const [atuacao, setAtuacao] = useState<{ servicoAtual: string | null; bairroAtual: string | null; atendeTodos: boolean } | null>(null);
+  const [atuacao, setAtuacao] = useState<{ servicoAtual: string | null; bairroAtual: string | null; atendeTodos: boolean; proximaTrocaServico: string | null; proximaTrocaBairro: string | null } | null>(null);
   const [salvandoAtuacao, setSalvandoAtuacao] = useState(false);
 
   useEffect(() => {
@@ -231,7 +231,13 @@ export default function Painel() {
     try {
       const res = await fetch("/api/diarista/atuacao");
       const j = await res.json();
-      if (j.ok) setAtuacao({ servicoAtual: j.servicoAtual, bairroAtual: j.bairroAtual, atendeTodos: j.atendeTodos });
+      if (j.ok) setAtuacao({
+        servicoAtual: j.servicoAtual,
+        bairroAtual: j.bairroAtual,
+        atendeTodos: j.atendeTodos,
+        proximaTrocaServico: j.proximaTrocaServico ?? null,
+        proximaTrocaBairro: j.proximaTrocaBairro ?? null,
+      });
     } catch { /* silencioso */ }
   }
   useEffect(() => {
@@ -252,7 +258,9 @@ export default function Painel() {
       if (!j.ok) throw new Error(j.erro || "Erro");
       setAtuacao((a) => a ? {
         ...a,
-        ...(tipo === "servico" ? { servicoAtual: slug } : { bairroAtual: slug, atendeTodos: false }),
+        ...(tipo === "servico"
+          ? { servicoAtual: slug, proximaTrocaServico: j.proximaTrocaServico ?? a.proximaTrocaServico }
+          : { bairroAtual: slug, atendeTodos: false, proximaTrocaBairro: j.proximaTrocaBairro ?? a.proximaTrocaBairro }),
       } : a);
     } catch (e) {
       setAvisoConta(e instanceof Error ? e.message : "Erro ao salvar.");
@@ -531,9 +539,9 @@ export default function Painel() {
           <Secao titulo="Seus dados de atuação">
             <p className="mb-4 text-xs text-ink/60">
               No plano <strong>Gratuito</strong> você atua com <strong>1 serviço</strong> e{" "}
-              <strong>1 bairro</strong>. Pode trocar quando quiser aqui embaixo. O{" "}
-              <strong>Plano Profissional</strong> permite até 3 serviços (com adicionais) e bairros
-              ilimitados dentro da sua cidade.
+              <strong>1 bairro</strong>. A troca é limitada a <strong>1 vez a cada 60 dias</strong>{" "}
+              para cada um. O <strong>Plano Profissional</strong> permite até 3 serviços (com
+              adicionais) e bairros ilimitados dentro da sua cidade, sem essa limitação.
             </p>
             {!atuacao ? (
               <p className="text-sm text-ink/40">Carregando…</p>
@@ -543,7 +551,7 @@ export default function Painel() {
                   <label className="mb-1.5 block text-sm font-semibold text-ink">Seu serviço</label>
                   <select
                     value={atuacao.servicoAtual ?? ""}
-                    disabled={salvandoAtuacao}
+                    disabled={salvandoAtuacao || !!atuacao.proximaTrocaServico}
                     onChange={(e) => e.target.value && trocarAtuacao("servico", e.target.value)}
                     className="w-full rounded-xl border border-brand-light bg-white px-4 py-3 text-sm text-ink focus:border-brand focus:outline-none disabled:opacity-50"
                   >
@@ -552,6 +560,11 @@ export default function Painel() {
                       <option key={s.slug} value={s.slug}>{s.nome}</option>
                     ))}
                   </select>
+                  {atuacao.proximaTrocaServico && (
+                    <p className="mt-1.5 text-xs text-ink/50">
+                      🔒 Você poderá trocar seu serviço novamente em {formatarData(atuacao.proximaTrocaServico)}.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -566,7 +579,7 @@ export default function Painel() {
                   )}
                   <select
                     value={atuacao.bairroAtual ?? ""}
-                    disabled={salvandoAtuacao}
+                    disabled={salvandoAtuacao || !!atuacao.proximaTrocaBairro}
                     onChange={(e) => e.target.value && trocarAtuacao("bairro", e.target.value)}
                     className="w-full rounded-xl border border-brand-light bg-white px-4 py-3 text-sm text-ink focus:border-brand focus:outline-none disabled:opacity-50"
                   >
@@ -575,6 +588,11 @@ export default function Painel() {
                       <option key={b.slug} value={b.slug}>{b.nome}</option>
                     ))}
                   </select>
+                  {atuacao.proximaTrocaBairro && (
+                    <p className="mt-1.5 text-xs text-ink/50">
+                      🔒 Você poderá trocar seu bairro novamente em {formatarData(atuacao.proximaTrocaBairro)}.
+                    </p>
+                  )}
                 </div>
 
                 {salvandoAtuacao && <p className="text-xs text-ink/40">Salvando…</p>}
