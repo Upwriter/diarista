@@ -70,6 +70,13 @@ async function aplicarAssinatura(sub: Stripe.Subscription, definirPagos = false)
   if (inicio) update.data_inicio_assinatura = inicio;
   if (definirPagos) update.adicionais_pagos = itemAdic?.quantity ?? 0;
 
+  // Pagamento confirmado → reativa e encerra o "ajuste pendente" do onboarding
+  // Profissional (a diarista deixa de ficar oculta e mantém seus benefícios).
+  if (plano === "pago") {
+    update.ativo = true;
+    update.ajuste_pendente = false;
+  }
+
   await supabaseAdmin.from("diaristas").update(update).eq("stripe_customer_id", customer);
 }
 

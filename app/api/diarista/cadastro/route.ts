@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { validarCPF } from "@/lib/cpf";
 import { getCidade } from "@/lib/bairros";
@@ -27,41 +27,54 @@ export async function POST(req: NextRequest) {
       servicos,
       precos,
       imoveis,
-      aceiteContrato,
     } = body;
 
-    // Plano atual do cadastro (hoje só o Gratuito está ativo).
+    // Plano do onboarding: "gratuito" ou "profissional".
     const plano: PlanoContrato = body.plano === "profissional" ? "profissional" : "gratuito";
+    const ehProfissional = plano === "profissional";
 
-    // Resolve a cidade escolhida (para gravação e para filtrar bairros).
     const cidadeInfo = getCidade(cidadeSlug ?? "sao-paulo");
 
-    // ── a) Validação dos campos obrigatórios ──────────────────────────
-    if (!email)                         return err("E-mail é obrigatório.");
-    if (!senha || senha.length < 6)     return err("A senha precisa ter no mínimo 6 caracteres.");
-    if (!nomeCompleto)                  return err("Nome completo é obrigatório.");
-    if (!cpf)                           return err("CPF é obrigatório.");
-    if (!whatsapp)                      return err("WhatsApp é obrigatório.");
-    if (!cidadeInfo)                    return err("Cidade inválida.");
-    if (!servicos?.length)              return err("Selecione pelo menos 1 tipo de serviço.");
-    if (!imoveis?.length)               return err("Selecione pelo menos 1 tipo de imóvel.");
-    if (!atendeTodosBairros && !bairros?.length)
-      return err("Selecione pelo menos 1 bairro ou marque que atende todos.");
-    if (aceiteContrato !== true)        return err("É necessário ler e aceitar o contrato para concluir o cadastro.");
+    // ── a) Campos obrigatórios ────────────────────────────────────────
+    if (!email)                     return err("E-mail é obrigatório.");
+    if (!senha || senha.length < 6) return err("A senha precisa ter no mínimo 6 caracteres.");
+    if (!nomeCompleto)              return err("Nome completo é obrigatório.");
+    if (!cpf)                       return err("CPF é obrigatório.");
+    if (!whatsapp)                  return err("WhatsApp é obrigatório.");
+    if (!cidadeInfo)                return err("Cidade inválida.");
+    if (!servicos?.length)          return err("Selecione pelo menos 1 tipo de serviço.");
+    if (!imoveis?.length)           return err("Selecione pelo menos 1 tipo de imóvel.");
 
-    // ── b) Validação do CPF ───────────────────────────────────────────
+    const nBairros = Array.isArray(bairros) ? bairros.length : 0;
+    const temWhats2 = !!whatsapp2;
+
+    // ── b) Validação dos LIMITES por plano (no servidor) ──────────────
+    if (!ehProfissional) {
+      // Plano Gratuito: 1 serviço, 1 bairro, 1 WhatsApp, sem "atende todos".
+      if (servicos.length !== 1) return err("O plano Gratuito permite apenas 1 serviço.");
+      if (atendeTodosBairros)    return err("O plano Gratuito não permite atender todos os bairros.");
+      if (nBairros !== 1)        return err("O plano Gratuito permite apenas 1 bairro.");
+      if (temWhats2)             return err("O plano Gratuito permite apenas 1 WhatsApp.");
+      if (body.aceiteContrato !== true)
+        return err("É necessário aceitar o contrato para concluir o cadastro.");
+    } else {
+      // Plano Profissional: até 5 serviços, até 2 WhatsApp.
+      if (servicos.length > 5)   return err("O plano Profissional permite no máximo 5 serviços.");
+      if (!atendeTodosBairros && nBairros < 1)
+        return err("Selecione ao menos 1 bairro ou marque que atende todos.");
+      if (body.aceiteContratoGratuito !== true || body.aceiteContratoProfissional !== true)
+        return err("É necessário aceitar os dois contratos para continuar.");
+    }
+
+    // ── c) CPF ────────────────────────────────────────────────────────
     if (!validarCPF(cpf)) return err("CPF inválido.");
     const cpfNumeros = cpf.replace(/\D/g, "");
 
-    // ── c) CPF duplicado ──────────────────────────────────────────────
     const { data: cpfExistente } = await supabaseAdmin
-      .from("diaristas")
-      .select("id")
-      .eq("cpf", cpfNumeros)
-      .maybeSingle();
+      .from("diaristas").select("id").eq("cpf", cpfNumeros).maybeSingle();
     if (cpfExistente) return err("Já existe um cadastro com este CPF.");
 
-    // ── d) Criar usuário no Supabase Auth ─────────────────────────────
+    // ── d) Usuário no Supabase Auth ───────────────────────────────────
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: senha,
@@ -76,7 +89,15 @@ export async function POST(req: NextRequest) {
     }
     const userId = authData.user.id;
 
-    // ── e) Inserir diarista ───────────────────────────────────────────
+    // ── e) A conta SEMPRE nasce Gratuita. No onboarding Profissional, se os
+    //       dados excedem os limites do Gratuito, o perfil fica OCULTO
+    //       (ativo=false, ajuste_pendente=true) até o pagamento confirmar
+    //       ou a diarista ajustar. Isso impede uma Gratuita de aparecer nas
+    //       buscas com benefícios de paga. ────────────────────────────
+    const excedeGratuito =
+      ehProfissional &&
+      (servicos.length > 1 || nBairros > 1 || !!atendeTodosBairros || temWhats2);
+
     const { data: diarista, error: diaErr } = await supabaseAdmin
       .from("diaristas")
       .insert({
@@ -84,33 +105,29 @@ export async function POST(req: NextRequest) {
         nome_completo:         nomeCompleto,
         cpf:                   cpfNumeros,
         whatsapp:              whatsapp.replace(/\D/g, ""),
-        ...(whatsapp2 ? { whatsapp2: whatsapp2.replace(/\D/g, "") } : {}),
+        ...(ehProfissional && temWhats2 ? { whatsapp2: whatsapp2.replace(/\D/g, "") } : {}),
         cidade:                cidadeInfo.nome,
-        atende_todos_bairros:  !!atendeTodosBairros,
+        atende_todos_bairros:  ehProfissional ? !!atendeTodosBairros : false,
         plano:                 "free",
-        ativo:                 true,
+        ativo:                 !excedeGratuito,
+        ajuste_pendente:       excedeGratuito,
       })
       .select("id")
       .single();
 
     if (diaErr || !diarista) {
-      // Rollback: remove o usuário Auth criado
       await supabaseAdmin.auth.admin.deleteUser(userId);
       return err(`Erro ao salvar cadastro: ${diaErr?.message ?? "desconhecido"}`);
     }
-
     const diaId = diarista.id;
 
     // ── f) Bairros ────────────────────────────────────────────────────
-    // Filtra pela CIDADE + slug, pois bairros de cidades diferentes podem
-    // ter o mesmo slug (ex.: "centro" em São Paulo e em Guarujá).
-    if (!atendeTodosBairros && bairros?.length) {
+    if (!atendeTodosBairros && nBairros) {
       const { data: bairroRows } = await supabaseAdmin
         .from("bairros")
         .select("id, slug")
         .eq("cidade", cidadeInfo.cidadeDb)
         .in("slug", bairros);
-
       if (bairroRows?.length) {
         await supabaseAdmin.from("diarista_bairros").insert(
           bairroRows.map((b: { id: string }) => ({ diarista_id: diaId, bairro_id: b.id }))
@@ -118,19 +135,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── g) Serviços ───────────────────────────────────────────────────
+    // ── g) Serviços (+ faixa de preço interna) ────────────────────────
     const { data: servicoRows } = await supabaseAdmin
-      .from("servicos")
-      .select("id, slug")
-      .in("slug", servicos);
-
+      .from("servicos").select("id, slug").in("slug", servicos);
     if (servicoRows?.length) {
       await supabaseAdmin.from("diarista_servicos").insert(
         servicoRows.map((s: { id: string }) => ({ diarista_id: diaId, servico_id: s.id }))
       );
-
-      // Faixa de preço por serviço (dado interno). Só grava as faixas válidas
-      // informadas para serviços que a diarista realmente selecionou.
       const FAIXAS_VALIDAS = ["ate-100", "100-150", "150-200", "200-300", "acima-300"];
       if (precos && typeof precos === "object") {
         const precoRows = servicoRows
@@ -148,18 +159,14 @@ export async function POST(req: NextRequest) {
 
     // ── h) Imóveis ────────────────────────────────────────────────────
     const { data: imovelRows } = await supabaseAdmin
-      .from("imoveis")
-      .select("id, slug")
-      .in("slug", imoveis);
-
+      .from("imoveis").select("id, slug").in("slug", imoveis);
     if (imovelRows?.length) {
       await supabaseAdmin.from("diarista_imoveis").insert(
         imovelRows.map((i: { id: string }) => ({ diarista_id: diaId, imovel_id: i.id }))
       );
     }
 
-    // ── i) Registro do aceite do contrato (assinatura digital) ─────────
-    // IP e data/hora capturados NO SERVIDOR (não confiamos no cliente).
+    // ── i) Aceite(s) de contrato — IP e data/hora capturados no servidor ─
     const ip =
       (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
       req.headers.get("x-real-ip") ||
@@ -171,26 +178,34 @@ export async function POST(req: NextRequest) {
       timeZone: "America/Sao_Paulo",
     });
 
-    const textoContrato = preencherContrato(plano, {
-      nome: nomeCompleto,
-      documento: cpf, // como informado no cadastro
-      dataHora: `${dataHoraLegivel} (horário de Brasília)`,
-      ip,
-    });
+    async function registrarAceite(planoContrato: PlanoContrato) {
+      const textoContrato = preencherContrato(planoContrato, {
+        nome: nomeCompleto,
+        documento: cpf,
+        dataHora: `${dataHoraLegivel} (horário de Brasília)`,
+        ip,
+      });
+      await supabaseAdmin.from("aceites_contrato").insert({
+        diarista_id:         diaId,
+        plano:               planoContrato,
+        versao_contrato:     VERSAO_CONTRATO,
+        nome_assinante:      nomeCompleto,
+        documento_assinante: cpf,
+        texto_contrato:      textoContrato,
+        data_hora_aceite:    dataHoraDate.toISOString(),
+        ip_aceite:           ip,
+      });
+    }
 
-    await supabaseAdmin.from("aceites_contrato").insert({
-      diarista_id:         diaId,
-      plano,
-      versao_contrato:     VERSAO_CONTRATO,
-      nome_assinante:      nomeCompleto,
-      documento_assinante: cpf,
-      texto_contrato:      textoContrato,
-      data_hora_aceite:    dataHoraDate.toISOString(),
-      ip_aceite:           ip,
-    });
+    if (ehProfissional) {
+      // DOIS aceites: o do Gratuito (rege a conta) e o do Profissional (rege a assinatura).
+      await registrarAceite("gratuito");
+      await registrarAceite("profissional");
+    } else {
+      await registrarAceite("gratuito");
+    }
 
-    // ── j) Sucesso ────────────────────────────────────────────────────
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, diaristaId: diaId });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Erro interno.";
     return NextResponse.json({ ok: false, erro: msg }, { status: 500 });

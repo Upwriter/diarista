@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 import GerenciarFotos from "@/components/GerenciarFotos";
+import AjustePlano from "@/components/AjustePlano";
 import Link from "next/link";
 import { CIDADES, bairrosDaCidade } from "@/lib/bairros";
 
@@ -32,6 +33,7 @@ interface PerfilRaw {
   assinatura_status: string | null;
   data_fim_periodo: string | null;
   cancelamento_agendado: boolean | null;
+  ajuste_pendente: boolean | null;
   diarista_bairros: unknown;
   diarista_servicos: unknown;
   diarista_imoveis: unknown;
@@ -53,6 +55,7 @@ interface Perfil {
   assinaturaStatus: string;
   dataFimPeriodo: string | null;
   cancelamentoAgendado: boolean;
+  ajustePendente: boolean;
 }
 
 // Estado dos serviços/adicionais (vem de GET /api/stripe/adicionais).
@@ -133,6 +136,7 @@ function normalizar(raw: PerfilRaw): Perfil {
     assinaturaStatus:     raw.assinatura_status ?? "sem_assinatura",
     dataFimPeriodo:       raw.data_fim_periodo ?? null,
     cancelamentoAgendado: !!raw.cancelamento_agendado,
+    ajustePendente:       !!raw.ajuste_pendente,
   };
 }
 
@@ -179,6 +183,7 @@ export default function Painel() {
         .select(`
           id, nome_completo, whatsapp, whatsapp2, cidade, plano, atende_todos_bairros,
           foto_url, galeria, assinatura_status, data_fim_periodo, cancelamento_agendado,
+          ajuste_pendente,
           diarista_bairros ( bairros ( nome ) ),
           diarista_servicos ( servicos ( nome ) ),
           diarista_imoveis ( imoveis ( nome ) )
@@ -423,6 +428,13 @@ export default function Painel() {
           Sair
         </button>
       </div>
+
+      {/* Ajuste de plano — onboarding Profissional sem pagamento confirmado. */}
+      {perfil.ajustePendente && (
+        <div className="mt-6">
+          <AjustePlano onResolvido={() => window.location.reload()} />
+        </div>
+      )}
 
       <div className="mt-6 rounded-2xl bg-brand p-6 text-paper">
         <p className="text-sm font-semibold uppercase tracking-widest text-paper/60">
