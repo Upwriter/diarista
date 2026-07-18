@@ -8,12 +8,63 @@ import {
   adicionaisNecessarios,
   ajustarItemAdicional,
 } from "@/lib/adicionais";
-import { VALOR_PLANO_REAIS, VALOR_ADICIONAL_REAIS } from "@/lib/stripe";
+import { stripe, VALOR_PLANO_REAIS, VALOR_ADICIONAL_REAIS } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
 function erro(msg: string, status = 400) {
   return NextResponse.json({ ok: false, erro: msg }, { status });
+}
+
+// Valor total mensal (em centavos) para uma dada quantidade de adicionais.
+function valorTotalCentavos(adicionais: number): number {
+  return Math.round((VALOR_PLANO_REAIS + adicionais * VALOR_ADICIONAL_REAIS) * 100);
+}
+
+// Grava o comprovante da alteração — best-effort: a mudança JÁ foi aplicada e
+// cobrada, então uma falha de log NÃO deve derrubar a operação da diarista.
+async function registrarAlteracao(
+  req: NextRequest,
+  dados: {
+    diaristaId: string;
+    tipo: "adicionar_servico" | "remover_servico";
+    servicoSlug: string;
+    valorTotalNovoCentavos: number;
+    valorProporcionalCentavos: number | null;
+    textoConfirmacao: string | null;
+  }
+) {
+  try {
+    const ip =
+      (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
+      req.headers.get("x-real-ip") ||
+      "desconhecido";
+    await supabaseAdmin.from("aceites_alteracao_assinatura").insert({
+      diarista_id:                 dados.diaristaId,
+      tipo:                        dados.tipo,
+      servico_slug:                dados.servicoSlug,
+      valor_total_novo_centavos:   dados.valorTotalNovoCentavos,
+      valor_proporcional_centavos: dados.valorProporcionalCentavos,
+      texto_confirmacao:           dados.textoConfirmacao,
+      data_hora:                   new Date().toISOString(),
+      ip,
+      user_agent:                  req.headers.get("user-agent") || null,
+    });
+  } catch (e) {
+    console.error("[adicionais] falha ao registrar log de alteração:", e);
+  }
+}
+
+// Busca o valor proporcional efetivamente faturado (última invoice da assinatura).
+async function proporcionalFaturado(subscriptionId: string): Promise<number | null> {
+  try {
+    const invs = await stripe.invoices.list({ subscription: subscriptionId, limit: 1 });
+    const inv = invs.data[0];
+    if (!inv) return null;
+    return inv.amount_paid ?? inv.amount_due ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // diarista_servicos tem PK composta (diarista_id, servico_id) e NÃO tem coluna
@@ -130,6 +181,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const action = body?.action as string;
   const slug = body?.slug as string;
+  // Frase EXATA exibida no modal e confirmada pela diarista (para o comprovante).
+  const textoConfirmacao = typeof body?.textoConfirmacao === "string" ? body.textoConfirmacao : null;
 
   const cat = SERVICOS_CATALOGO.find((s) => s.slug === slug);
   if (!cat) return erro("Serviço inválido.");
@@ -199,6 +252,17 @@ export async function POST(req: NextRequest) {
     if (cobrar) update.adicionais_pagos = novoAdic;
     await supabaseAdmin.from("diaristas").update(update).eq("id", diarista.id);
 
+    // Comprovante da aceitação (valor calculado no servidor; IP/hora do servidor).
+    const proporcional = cobrar ? await proporcionalFaturado(diarista.stripe_subscription_id) : null;
+    await registrarAlteracao(req, {
+      diaristaId: diarista.id,
+      tipo: "adicionar_servico",
+      servicoSlug: slug,
+      valorTotalNovoCentavos: valorTotalCentavos(novoAdic),
+      valorProporcionalCentavos: proporcional,
+      textoConfirmacao,
+    });
+
     const novo = await carregar(user.id);
     return NextResponse.json({
       ok: true,
@@ -248,6 +312,16 @@ export async function POST(req: NextRequest) {
     .from("diaristas")
     .update({ stripe_item_adicional_id: novoItemId })
     .eq("id", diarista.id);
+
+  // Comprovante da remoção (sem cobrança imediata → proporcional nulo).
+  await registrarAlteracao(req, {
+    diaristaId: diarista.id,
+    tipo: "remover_servico",
+    servicoSlug: slug,
+    valorTotalNovoCentavos: valorTotalCentavos(novoAdic),
+    valorProporcionalCentavos: null,
+    textoConfirmacao,
+  });
 
   const novo = await carregar(user.id);
   return NextResponse.json({

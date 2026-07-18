@@ -84,6 +84,7 @@ interface ConfirmAcao {
   ehAdicional: boolean; // (adicionar) vira serviço pago?
   cobraAgora: boolean;  // (adicionar) gera cobrança proporcional agora?
   novoValorMensal: number;
+  texto: string;        // frase exata exibida no modal (vai para o comprovante)
 }
 
 function formatarReais(v: number): string {
@@ -270,9 +271,14 @@ export default function Painel() {
 
     if (tipo === "remover") {
       const novoAdic = Math.max(0, proxCiclo - 1 - adic.incluidos);
+      const val = formatarReais(adic.valorPlano + novoAdic * adic.valorAdicional);
+      const ateData = adic.dataFimPeriodo
+        ? `até ${formatarData(adic.dataFimPeriodo)} (fim do período já pago)`
+        : "até o fim do período já pago";
       setConfirmAcao({
         tipo, slug, nome, ehAdicional: false, cobraAgora: false,
         novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
+        texto: `Remover "${nome}". O serviço continua disponível no seu perfil ${ateData}. Não há reembolso proporcional. Depois dessa data, sua mensalidade passa a ser ${val}/mês.`,
       });
       return;
     }
@@ -286,9 +292,25 @@ export default function Painel() {
     }
     const ehAdicional = proxCiclo >= adic.incluidos;
     const cobraAgora = novoAdic > adic.adicionaisPagos;
+    const novoValorMensal = adic.valorPlano + novoAdic * adic.valorAdicional;
+    const val = formatarReais(novoValorMensal);
+
+    let corpo: string;
+    if (tipo === "reativar") {
+      corpo = `Isso desfaz a remoção agendada. Como você já pagou por este serviço neste ciclo, não haverá nova cobrança. A partir da próxima renovação, sua mensalidade passa a ser ${val}/mês.`;
+    } else if (ehAdicional) {
+      const cobrancaFrase = cobraAgora
+        ? "Este é um serviço adicional. Você será cobrado agora o valor proporcional aos dias restantes deste ciclo."
+        : "Você já pagou por este slot adicional neste ciclo, então não haverá nova cobrança agora.";
+      corpo = `${cobrancaFrase} A partir da próxima renovação, sua mensalidade passa a ser ${val}/mês.`;
+    } else {
+      corpo = `Este serviço está incluído no seu plano, sem custo adicional. Sua mensalidade continua ${val}/mês.`;
+    }
+    const titulo = tipo === "reativar" ? "Reativar" : "Adicionar";
+
     setConfirmAcao({
-      tipo, slug, nome, ehAdicional, cobraAgora,
-      novoValorMensal: adic.valorPlano + novoAdic * adic.valorAdicional,
+      tipo, slug, nome, ehAdicional, cobraAgora, novoValorMensal,
+      texto: `${titulo} "${nome}". ${corpo}`,
     });
   }
 
@@ -303,7 +325,7 @@ export default function Painel() {
       const res = await fetch("/api/stripe/adicionais", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, slug: confirmAcao.slug }),
+        body: JSON.stringify({ action, slug: confirmAcao.slug, textoConfirmacao: confirmAcao.texto }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
