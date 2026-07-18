@@ -102,10 +102,17 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([FIRST_MSG]);
 
-  // Nas páginas de artigo (/blog/[slug]) o botão flutuante some (já há o CTA
-  // da Cida no sidebar). O chat continua funcional (abre pelo CTA / evento).
+  // O botão flutuante "Encontrar uma diarista" é para CLIENTES. Ele some:
+  //  - nas páginas de artigo (/blog/[slug]) — já há o CTA da Cida no sidebar;
+  //  - nas áreas de profissional/admin (painel, login, onboarding, admin do blog),
+  //    onde a busca por diarista não faz sentido.
+  // O chat continua funcional onde há CTA (abre pelo evento open-chat-widget).
   const pathname = usePathname();
-  const emArtigoBlog = pathname.startsWith("/blog/");
+  const AREAS_SEM_BOTAO = ["/painel", "/admin", "/entrar", "/sou-diarista", "/redator"];
+  const emAreaProfissional = AREAS_SEM_BOTAO.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
+  const esconderFlutuante = pathname.startsWith("/blog/") || emAreaProfissional;
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversaId, setConversaId] = useState<string | null>(null);
@@ -167,8 +174,8 @@ export default function ChatWidget({ bairroSlug }: { bairroSlug?: string }) {
 
   return (
     <>
-      {/* Botão flutuante — some quando o chat está aberto e nas páginas de artigo */}
-      {!open && !emArtigoBlog && (
+      {/* Botão flutuante — some quando o chat está aberto e nas áreas sem CTA de cliente */}
+      {!open && !esconderFlutuante && (
         <button
           onClick={() => setOpen(true)}
           aria-label="Abrir chat para encontrar uma diarista"
