@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { emailDaDiarista, emailLeadComDados, emailLeadSemDados } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -13,10 +14,10 @@ export async function GET(req: NextRequest, { params }: Props) {
   const leadId = req.nextUrl.searchParams.get("lead_id");
   const conversaId = req.nextUrl.searchParams.get("conversa");
 
-  // Busca o número da diarista (nunca exposto em JSON, só usado no redirect).
+  // Busca a diarista (número nunca vai em JSON; user_id/nome só p/ o email).
   const { data } = await supabaseAdmin
     .from("diaristas")
-    .select("whatsapp, ativo, excluida")
+    .select("whatsapp, ativo, excluida, user_id, nome_completo")
     .eq("id", diaristaId)
     .maybeSingle();
 
@@ -36,6 +37,48 @@ export async function GET(req: NextRequest, { params }: Props) {
   } catch {
     // silencioso — o importante é encaminhar o cliente
   }
+
+  // Aviso por email à diarista — roda DEPOIS do redirect (after), então NUNCA
+  // atrasa o cliente. Best-effort. Envia sempre; muda só o conteúdo:
+  //  - COM dados do lead (via conversa → lead): nome/whatsapp/serviço;
+  //  - SEM dados (clique direto, sem conversa): aviso genérico.
+  const userId = data.user_id as string | null;
+  const nomeDiarista = (data.nome_completo as string) ?? "";
+  after(async () => {
+    try {
+      const para = await emailDaDiarista(userId);
+      if (!para) return;
+
+      // Resolve o lead: conversa → conversas_chat.lead_id (fallback ?lead_id=).
+      let lid: string | null = null;
+      if (conversaId) {
+        const { data: conv } = await supabaseAdmin
+          .from("conversas_chat").select("lead_id").eq("id", conversaId).maybeSingle();
+        lid = (conv?.lead_id as string | null) ?? null;
+      }
+      if (!lid && leadId) lid = leadId;
+
+      type LeadInfo = { nome: string | null; whatsapp: string | null; servicos: { nome: string } | null };
+      let lead: LeadInfo | null = null;
+      if (lid) {
+        const { data: l } = await supabaseAdmin
+          .from("leads")
+          .select("nome, whatsapp, servicos ( nome )")
+          .eq("id", lid)
+          .maybeSingle();
+        lead = (l as unknown as LeadInfo) ?? null;
+      }
+
+      if (lead) {
+        const servico = lead.servicos?.nome ?? "não informado";
+        await emailLeadComDados(para, nomeDiarista, lead.nome ?? "Cliente", lead.whatsapp ?? "não informado", servico);
+      } else {
+        await emailLeadSemDados(para, nomeDiarista);
+      }
+    } catch (e) {
+      console.error("[whatsapp] falha ao enviar email de lead:", e instanceof Error ? e.message : e);
+    }
+  });
 
   // Monta o link do WhatsApp com DDI 55 e mensagem pré-preenchida.
   const numeros = String(data.whatsapp).replace(/\D/g, "");

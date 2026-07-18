@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe, PRICE_ADICIONAL } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import {
+  emailDaDiarista,
+  emailBoasVindasProfissional,
+  emailPagamentoConfirmado,
+  emailFalhaPagamento,
+} from "@/lib/email";
+
+// Envia um email transacional para a diarista dona de um customer do Stripe.
+// Best-effort: resolve nome + email (auth) e dispara; nunca lança.
+async function notificar(
+  customer: string,
+  fn: (para: string | null, nome: string) => Promise<void>
+) {
+  try {
+    const { data: d } = await supabaseAdmin
+      .from("diaristas")
+      .select("nome_completo, user_id")
+      .eq("stripe_customer_id", customer)
+      .maybeSingle();
+    if (!d) return;
+    const para = await emailDaDiarista(d.user_id as string | null);
+    await fn(para, (d.nome_completo as string) ?? "");
+  } catch (e) {
+    console.error("[webhook] falha ao notificar por email:", e instanceof Error ? e.message : e);
+  }
+}
 
 export const runtime = "nodejs";
 // Não usar cache — cada evento é único.
@@ -83,11 +109,20 @@ async function aplicarAssinatura(sub: Stripe.Subscription, definirPagos = false)
   // vazio (.is null). Se ela cancelar e reassinar depois, a data original NÃO é
   // sobrescrita (o filtro null não casa mais).
   if (plano === "pago") {
-    await supabaseAdmin
+    // O .is(null) garante que só grava na PRIMEIRA vez. O .select() nos diz se
+    // esta foi a primeira ativação — e só então mandamos o email de boas-vindas
+    // Profissional (evita duplicar com o 4A nas renovações).
+    const { data: primeiraVez } = await supabaseAdmin
       .from("diaristas")
       .update({ primeira_assinatura_em: iso(sub.start_date) ?? new Date().toISOString() })
       .eq("stripe_customer_id", customer)
-      .is("primeira_assinatura_em", null);
+      .is("primeira_assinatura_em", null)
+      .select("nome_completo, user_id");
+    if (primeiraVez && primeiraVez.length > 0) {
+      const d = primeiraVez[0];
+      const para = await emailDaDiarista(d.user_id as string | null);
+      await emailBoasVindasProfissional(para, (d.nome_completo as string) ?? "");
+    }
   }
 }
 
@@ -198,7 +233,10 @@ export async function POST(req: NextRequest) {
         const inv = evento.data.object as Stripe.Invoice & { billing_reason?: string };
         const customer = typeof inv.customer === "string" ? inv.customer : inv.customer?.id;
         if (customer && inv.billing_reason === "subscription_cycle") {
+          // subscription_cycle = RENOVAÇÃO (a 1ª cobrança é "subscription_create"),
+          // então o 4A nunca colide com o email 2 de boas-vindas.
           await renovarCiclo(customer);
+          await notificar(customer, emailPagamentoConfirmado);
         }
         break;
       }
@@ -210,6 +248,7 @@ export async function POST(req: NextRequest) {
             .from("diaristas")
             .update({ assinatura_status: "inadimplente" })
             .eq("stripe_customer_id", customer);
+          await notificar(customer, emailFalhaPagamento);
         }
         break;
       }

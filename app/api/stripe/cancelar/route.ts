@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { stripe } from "@/lib/stripe";
+import { emailDaDiarista, emailCancelamentoSolicitado } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function POST() {
 
   const { data: diarista } = await supabaseAdmin
     .from("diaristas")
-    .select("id, stripe_subscription_id")
+    .select("id, stripe_subscription_id, nome_completo")
     .eq("user_id", user.id)
     .maybeSingle();
   if (!diarista) return erro("Perfil não encontrado.", 404);
@@ -37,6 +38,10 @@ export async function POST() {
     .from("diaristas")
     .update({ cancelamento_agendado: true, data_fim_periodo: fim })
     .eq("id", diarista.id);
+
+  // Confirmação do PEDIDO de cancelamento (best-effort).
+  const para = await emailDaDiarista(user.id);
+  await emailCancelamentoSolicitado(para, diarista.nome_completo ?? "");
 
   return NextResponse.json({ ok: true, dataFimPeriodo: fim });
 }

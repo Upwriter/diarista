@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { validarCPF } from "@/lib/cpf";
 import { getCidade } from "@/lib/bairros";
 import { preencherContrato, VERSAO_CONTRATO, type PlanoContrato } from "@/lib/contratos";
+import { emailCadastroGratuito } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -203,6 +204,12 @@ export async function POST(req: NextRequest) {
       await registrarAceite("profissional");
     } else {
       await registrarAceite("gratuito");
+    }
+
+    // Email de boas-vindas do Gratuito (best-effort). No Profissional, o email
+    // de boas-vindas sai só APÓS o pagamento confirmar (webhook).
+    if (!ehProfissional) {
+      await emailCadastroGratuito(email, nomeCompleto);
     }
 
     return NextResponse.json({ ok: true, diaristaId: diaId });
