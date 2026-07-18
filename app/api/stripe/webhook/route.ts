@@ -78,6 +78,17 @@ async function aplicarAssinatura(sub: Stripe.Subscription, definirPagos = false)
   }
 
   await supabaseAdmin.from("diaristas").update(update).eq("stripe_customer_id", customer);
+
+  // Registro histórico da PRIMEIRA assinatura paga: grava apenas se ainda estiver
+  // vazio (.is null). Se ela cancelar e reassinar depois, a data original NÃO é
+  // sobrescrita (o filtro null não casa mais).
+  if (plano === "pago") {
+    await supabaseAdmin
+      .from("diaristas")
+      .update({ primeira_assinatura_em: iso(sub.start_date) ?? new Date().toISOString() })
+      .eq("stripe_customer_id", customer)
+      .is("primeira_assinatura_em", null);
+  }
 }
 
 // Na renovação do ciclo: remove os adicionais que estavam com remoção agendada

@@ -48,6 +48,7 @@ export default async function AdminPage() {
     .select(`
       id, user_id, nome_completo, cpf, whatsapp, whatsapp2, plano,
       atende_todos_bairros, foto_url, cidade, created_at, excluida, excluida_em,
+      primeira_assinatura_em,
       diarista_bairros ( bairros ( nome ) ),
       diarista_servicos ( servicos ( nome ) ),
       diarista_imoveis ( imoveis ( nome ) )
@@ -98,7 +99,7 @@ export default async function AdminPage() {
     imoveis:            extrairNomes(d.diarista_imoveis, "imoveis"),
     leads:              leadsPorDiarista.get(d.id) ?? 0,
     createdAt:          d.created_at ?? null,
-    primeiraAssinatura: null, // pagamento ainda não existe
+    primeiraAssinatura: (d as { primeira_assinatura_em?: string | null }).primeira_assinatura_em ?? null,
     fotoUrl:            d.foto_url ?? null,
     cpfMascarado:       mascararCpf(d.cpf),
     cidade:             d.cidade ?? "",
