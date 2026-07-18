@@ -16,6 +16,14 @@ function erro(msg: string, status = 400) {
   return NextResponse.json({ ok: false, erro: msg }, { status });
 }
 
+// Usuário logado sem diarista vinculada = sessão órfã: pede relogin ao front.
+function sessaoInvalida() {
+  return NextResponse.json(
+    { ok: false, erro: "Sua sessão expirou. Entre novamente.", relogar: true },
+    { status: 401 }
+  );
+}
+
 // Se ainda está no cooldown, retorna a data em que poderá trocar de novo; senão null.
 function proximaTroca(ultima: string | null): string | null {
   if (!ultima) return null;
@@ -45,7 +53,7 @@ export async function GET() {
   if (!user) return erro("Não autenticado.", 401);
 
   const diarista = await carregarDiarista(user.id);
-  if (!diarista) return erro("Perfil não encontrado.", 404);
+  if (!diarista) return sessaoInvalida();
 
   const { data: srv } = await supabaseAdmin
     .from("diarista_servicos")
@@ -93,7 +101,7 @@ export async function POST(req: NextRequest) {
   if (!slug || typeof slug !== "string") return erro("Seleção inválida.");
 
   const diarista = await carregarDiarista(user.id);
-  if (!diarista) return erro("Perfil não encontrado.", 404);
+  if (!diarista) return sessaoInvalida();
   if (diarista.excluida) return erro("Perfil excluído.");
   // Esta edição é do Plano Gratuito (1 serviço, 1 bairro). O Profissional usa
   // o gerenciador próprio de serviços.

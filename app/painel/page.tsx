@@ -218,6 +218,7 @@ export default function Painel() {
   async function carregarAdicionais() {
     try {
       const res = await fetch("/api/stripe/adicionais");
+      if (await tratarSessaoInvalida(res)) return;
       const j = await res.json();
       if (j.ok) setAdic(j as AdicEstado);
     } catch { /* silencioso */ }
@@ -226,10 +227,19 @@ export default function Painel() {
     if (perfil?.plano === "pago") carregarAdicionais();
   }, [perfil?.plano]);
 
+  // Sessão órfã/expirada (usuário logado sem diarista): desloga e volta ao login.
+  async function tratarSessaoInvalida(res: Response): Promise<boolean> {
+    if (res.status !== 401) return false;
+    await supabase.auth.signOut();
+    router.replace("/entrar");
+    return true;
+  }
+
   // Estado de atuação do Plano Gratuito (1 serviço, 1 bairro).
   async function carregarAtuacao() {
     try {
       const res = await fetch("/api/diarista/atuacao");
+      if (await tratarSessaoInvalida(res)) return;
       const j = await res.json();
       if (j.ok) setAtuacao({
         servicoAtual: j.servicoAtual,
@@ -254,6 +264,7 @@ export default function Painel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo, slug }),
       });
+      if (await tratarSessaoInvalida(res)) return;
       const j = await res.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
       setAtuacao((a) => a ? {
@@ -335,6 +346,7 @@ export default function Painel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, slug: confirmAcao.slug, textoConfirmacao: confirmAcao.texto }),
       });
+      if (await tratarSessaoInvalida(res)) return;
       const j = await res.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
       setAdic(j as AdicEstado);

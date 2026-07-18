@@ -16,6 +16,15 @@ function erro(msg: string, status = 400) {
   return NextResponse.json({ ok: false, erro: msg }, { status });
 }
 
+// Usuário logado mas sem diarista vinculada = sessão órfã/inválida (ex.: perfil
+// recriado, sessão antiga). Sinaliza ao front para deslogar e reentrar.
+function sessaoInvalida() {
+  return NextResponse.json(
+    { ok: false, erro: "Sua sessão expirou. Entre novamente.", relogar: true },
+    { status: 401 }
+  );
+}
+
 // Valor total mensal (em centavos) para uma dada quantidade de adicionais.
 function valorTotalCentavos(adicionais: number): number {
   return Math.round((VALOR_PLANO_REAIS + adicionais * VALOR_ADICIONAL_REAIS) * 100);
@@ -77,19 +86,14 @@ interface LinhaServico {
 }
 
 // Carrega diarista + serviços já ordenados (inclusos primeiro, por ordem de id).
-async function carregar(userId: string, origem = "?") {
+async function carregar(userId: string) {
   const { data: diarista, error } = await supabaseAdmin
     .from("diaristas")
     .select("id, plano, excluida, stripe_subscription_id, stripe_item_adicional_id, data_fim_periodo, adicionais_pagos")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error || !diarista) {
-    // Diagnóstico: distingue "0 linhas" de "2+ linhas" (erro do maybeSingle) etc.
-    console.error("[adicionais] carregar SEM diarista", JSON.stringify({
-      origem, userId, temErro: !!error, erro: error?.message ?? null, code: error?.code ?? null,
-    }));
-    return null;
-  }
+  if (error) console.error("[adicionais] erro ao carregar diarista:", error.message);
+  if (error || !diarista) return null;
 
   const { data: rows } = await supabaseAdmin
     .from("diarista_servicos")
@@ -169,8 +173,8 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return erro("Não autenticado.", 401);
 
-  const dados = await carregar(user.id, "GET");
-  if (!dados) return erro("Perfil não encontrado.", 404);
+  const dados = await carregar(user.id);
+  if (!dados) return sessaoInvalida();
 
   return NextResponse.json({
     ok: true,
@@ -194,8 +198,8 @@ export async function POST(req: NextRequest) {
   if (!cat) return erro("Serviço inválido.");
   if (action !== "adicionar" && action !== "remover") return erro("Ação inválida.");
 
-  const dados = await carregar(user.id, "POST");
-  if (!dados) return erro("Perfil não encontrado.", 404);
+  const dados = await carregar(user.id);
+  if (!dados) return sessaoInvalida();
   const { diarista, servicos } = dados;
 
   if (diarista.excluida) return erro("Perfil excluído.");
@@ -220,14 +224,6 @@ export async function POST(req: NextRequest) {
 
     // Cobra o proporcional só se for um adicional NOVO (além do que já pagou neste ciclo).
     const cobrar = novoAdic > pagos;
-
-    // LOG TEMPORÁRIO DE DIAGNÓSTICO (aparece nos logs da Vercel). Remover depois.
-    console.log("[adicionais] add", JSON.stringify({
-      diaristaId: diarista.id, slug,
-      subId: diarista.stripe_subscription_id, itemId,
-      pagos, proxCicloAtual, novoAdic, cobrar,
-      priceAdicionalDefinido: !!process.env.STRIPE_PRICE_ADICIONAL,
-    }));
 
     // Ajuste no Stripe (só se houver adicionais a faturar).
     let novoItemId = itemId;
