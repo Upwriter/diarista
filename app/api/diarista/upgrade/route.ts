@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     dataHora: `${dataHoraLegivel} (horário de Brasília)`,
     ip,
   });
-  await supabaseAdmin.from("aceites_contrato").insert({
+  const { error: aceiteErr } = await supabaseAdmin.from("aceites_contrato").insert({
     diarista_id:         diarista.id,
     plano:               "profissional",
     versao_contrato:     VERSAO_CONTRATO,
@@ -75,6 +75,11 @@ export async function POST(req: NextRequest) {
     data_hora_aceite:    agora.toISOString(),
     ip_aceite:           ip,
   });
+  // Se o aceite falhar, NÃO seguimos para o pagamento (é o registro jurídico).
+  if (aceiteErr) {
+    console.error("[upgrade] falha ao gravar aceite profissional:", aceiteErr.message);
+    return erro("Não foi possível registrar o aceite do contrato. Tente novamente.", 500);
+  }
 
   // ── 2) Salva serviços escolhidos (substitui o conjunto atual) ───────────────
   const { data: srvRows } = await supabaseAdmin

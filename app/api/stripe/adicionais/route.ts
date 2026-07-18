@@ -215,6 +215,14 @@ export async function POST(req: NextRequest) {
     // Cobra o proporcional só se for um adicional NOVO (além do que já pagou neste ciclo).
     const cobrar = novoAdic > pagos;
 
+    // LOG TEMPORÁRIO DE DIAGNÓSTICO (aparece nos logs da Vercel). Remover depois.
+    console.log("[adicionais] add", JSON.stringify({
+      diaristaId: diarista.id, slug,
+      subId: diarista.stripe_subscription_id, itemId,
+      pagos, proxCicloAtual, novoAdic, cobrar,
+      priceAdicionalDefinido: !!process.env.STRIPE_PRICE_ADICIONAL,
+    }));
+
     // Ajuste no Stripe (só se houver adicionais a faturar).
     let novoItemId = itemId;
     if (novoAdic > 0) {
@@ -227,6 +235,7 @@ export async function POST(req: NextRequest) {
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "cobrança recusada";
+        console.error("[adicionais] ajustarItemAdicional FALHOU:", msg, e);
         return erro(`Não foi possível concluir a cobrança do serviço adicional: ${msg}. Nenhum serviço foi adicionado.`, 402);
       }
     }
