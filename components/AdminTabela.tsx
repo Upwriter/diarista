@@ -1,9 +1,48 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+
+// Registro de alteração de assinatura (serviços adicionais).
+interface Alteracao {
+  id: string;
+  tipo: string;
+  servico_slug: string | null;
+  valor_total_novo_centavos: number;
+  valor_proporcional_centavos: number | null;
+  texto_confirmacao: string | null;
+  data_hora: string;
+  ip: string | null;
+  user_agent: string | null;
+}
+
+const SERVICO_NOME: Record<string, string> = {
+  "diarista": "Diarista",
+  "faxineira": "Faxineira",
+  "passadeira": "Passadeira",
+  "limpeza-pos-obra": "Limpeza pós-obra",
+  "cozinheira": "Cozinheira",
+};
+function servicoNome(slug: string | null): string {
+  if (!slug) return "—";
+  return SERVICO_NOME[slug] ?? slug;
+}
+function tipoLabel(tipo: string): string {
+  if (tipo === "adicionar_servico") return "Adicionou serviço";
+  if (tipo === "remover_servico") return "Removeu serviço";
+  return tipo;
+}
+function reaisCent(cents: number | null): string {
+  if (cents == null) return "—";
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+function formatarDataHora(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
 
 export interface DiaristaAdmin {
   id: string;
@@ -67,6 +106,55 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("ativas");
   const [selecionada, setSelecionada] = useState<DiaristaAdmin | null>(null);
+  const [historico, setHistorico] = useState<Alteracao[] | null>(null);
+
+  // Carrega o histórico de alterações ao abrir os detalhes de uma diarista.
+  useEffect(() => {
+    if (!selecionada) { setHistorico(null); return; }
+    let cancelado = false;
+    setHistorico(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/alteracoes?id=${selecionada.id}`);
+        const j = await res.json();
+        if (!cancelado) setHistorico(j.ok ? (j.alteracoes as Alteracao[]) : []);
+      } catch {
+        if (!cancelado) setHistorico([]);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [selecionada]);
+
+  function baixarCsv() {
+    if (!selecionada || !historico?.length) return;
+    const cel = (v: unknown) => {
+      const s = String(v ?? "");
+      return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const linhas: string[][] = [[
+      "Data/hora", "Tipo", "Servico", "Valor total novo", "Valor proporcional cobrado", "IP", "Texto de confirmacao",
+    ]];
+    for (const a of historico) {
+      linhas.push([
+        formatarDataHora(a.data_hora),
+        tipoLabel(a.tipo),
+        servicoNome(a.servico_slug),
+        reaisCent(a.valor_total_novo_centavos),
+        reaisCent(a.valor_proporcional_centavos),
+        a.ip ?? "",
+        a.texto_confirmacao ?? "",
+      ]);
+    }
+    const csv = linhas.map((r) => r.map(cel).join(",")).join("\r\n");
+    // BOM para o Excel abrir os acentos corretamente.
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `alteracoes-plano-${selecionada.nome.replace(/\s+/g, "-").toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const filtradas = useMemo(() => {
     return dados.filter((d) => {
@@ -332,6 +420,54 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
                 </dd>
               </div>
             </dl>
+
+            {/* Histórico de alterações de plano (serviços adicionais) */}
+            <div className="mt-6 border-t border-brand-light pt-5">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-ink/40">
+                  Histórico de alterações de plano
+                </h3>
+                {historico && historico.length > 0 && (
+                  <button
+                    onClick={baixarCsv}
+                    className="shrink-0 rounded-full border border-brand-light px-3 py-1 text-xs font-semibold text-brand transition-colors hover:bg-brand hover:text-paper"
+                  >
+                    ⬇ Baixar CSV
+                  </button>
+                )}
+              </div>
+
+              {historico === null ? (
+                <p className="mt-3 text-sm text-ink/40">Carregando…</p>
+              ) : historico.length === 0 ? (
+                <p className="mt-3 text-sm text-ink/40">Nenhuma alteração de serviço adicional registrada.</p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {historico.map((a) => (
+                    <li key={a.id} className="rounded-xl border border-brand-light bg-paper/40 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-ink">
+                          {tipoLabel(a.tipo)}: {servicoNome(a.servico_slug)}
+                        </span>
+                        <span className="text-xs text-ink/50">{formatarDataHora(a.data_hora)}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-ink/70">
+                        Novo valor mensal: <strong>{reaisCent(a.valor_total_novo_centavos)}</strong>
+                        {a.valor_proporcional_centavos != null && (
+                          <> · Proporcional cobrado agora: <strong>{reaisCent(a.valor_proporcional_centavos)}</strong></>
+                        )}
+                      </div>
+                      {a.texto_confirmacao && (
+                        <p className="mt-1.5 rounded-lg bg-white px-3 py-2 text-xs italic text-ink/60">
+                          “{a.texto_confirmacao}”
+                        </p>
+                      )}
+                      {a.ip && <p className="mt-1 text-[11px] text-ink/35">IP: {a.ip}</p>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {selecionada.whatsapp && (
               <a
