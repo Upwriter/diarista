@@ -360,19 +360,12 @@ export default function Painel() {
     router.push("/entrar");
   }
 
-  // Inicia o checkout do Stripe (assinatura).
-  async function assinar() {
+  // Upgrade para o Profissional: passa pelo mini-fluxo (serviços, bairros, aceite
+  // do contrato Profissional) em vez de ir direto ao checkout.
+  function assinar() {
     setAvisoConta("");
     setProcessando(true);
-    try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
-      const j = await res.json();
-      if (!j.ok || !j.url) throw new Error(j.erro || "Erro ao iniciar o pagamento.");
-      window.location.href = j.url; // redireciona ao checkout hospedado do Stripe
-    } catch (e) {
-      setAvisoConta(e instanceof Error ? e.message : "Erro ao iniciar o pagamento.");
-      setProcessando(false);
-    }
+    router.push("/painel/upgrade");
   }
 
   // Cancela a assinatura ao fim do período (estilo Netflix).

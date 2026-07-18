@@ -63,11 +63,16 @@ export async function GET() {
   const servicoAtual = (srv?.servicos as unknown as { slug: string } | null)?.slug ?? null;
   const bairroAtual = (bai?.bairros as unknown as { slug: string } | null)?.slug ?? null;
 
+  const cidadeSlug = CIDADES.find((c) => c.nome === diarista.cidade)?.slug ?? "sao-paulo";
+
   return NextResponse.json({
     ok: true,
     servicoAtual,
     bairroAtual,
     atendeTodos: !!diarista.atende_todos_bairros,
+    plano: diarista.plano,
+    cidade: diarista.cidade,
+    cidadeSlug,
     // Se preenchido, é a data (ISO) em que a diarista poderá trocar de novo.
     proximaTrocaServico: proximaTroca(diarista.ultima_troca_servico_em as string | null),
     proximaTrocaBairro: proximaTroca(diarista.ultima_troca_bairro_em as string | null),
