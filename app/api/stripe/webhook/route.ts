@@ -105,6 +105,40 @@ async function renovarCiclo(customer: string) {
   await supabaseAdmin.from("diaristas").update({ adicionais_pagos: pagos }).eq("id", diarista.id);
 }
 
+// Rebaixamento efetivo para o Gratuito (fim do período pago após cancelamento).
+// Se a diarista exceder os limites do Gratuito (mais de 1 serviço/bairro, 2º
+// WhatsApp ou "atende todos"), fica OCULTA (ativo=false, ajuste_pendente=true)
+// até escolher o que manter no /painel — igual ao abandono de checkout. Se já
+// estiver dentro dos limites, apenas rebaixa e permanece ativa.
+async function rebaixarParaGratuito(customer: string) {
+  const { data: d } = await supabaseAdmin
+    .from("diaristas")
+    .select("id, whatsapp2, atende_todos_bairros")
+    .eq("stripe_customer_id", customer)
+    .maybeSingle();
+
+  const base = { plano: "free", assinatura_status: "cancelada", cancelamento_agendado: false };
+  if (!d) {
+    await supabaseAdmin.from("diaristas").update(base).eq("stripe_customer_id", customer);
+    return;
+  }
+
+  const [servRes, bairRes] = await Promise.all([
+    supabaseAdmin.from("diarista_servicos").select("servico_id", { count: "exact", head: true }).eq("diarista_id", d.id),
+    supabaseAdmin.from("diarista_bairros").select("bairro_id", { count: "exact", head: true }).eq("diarista_id", d.id),
+  ]);
+  const excede =
+    (servRes.count ?? 0) > 1 ||
+    (bairRes.count ?? 0) > 1 ||
+    !!d.whatsapp2 ||
+    !!d.atende_todos_bairros;
+
+  await supabaseAdmin
+    .from("diaristas")
+    .update({ ...base, ativo: !excede, ajuste_pendente: excede })
+    .eq("id", d.id);
+}
+
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
     return NextResponse.json({ erro: "Webhook não configurado." }, { status: 500 });
@@ -145,14 +179,7 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = evento.data.object as Stripe.Subscription;
         const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-        await supabaseAdmin
-          .from("diaristas")
-          .update({
-            plano: "free",
-            assinatura_status: "cancelada",
-            cancelamento_agendado: false,
-          })
-          .eq("stripe_customer_id", customer);
+        await rebaixarParaGratuito(customer);
         break;
       }
       case "invoice.paid": {

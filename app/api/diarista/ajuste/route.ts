@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { CIDADES } from "@/lib/bairros";
+import { CIDADES, bairrosDaCidade } from "@/lib/bairros";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,7 @@ function erro(msg: string, status = 400) {
 async function carregar(userId: string) {
   const { data: diarista } = await supabaseAdmin
     .from("diaristas")
-    .select("id, plano, cidade, excluida, ajuste_pendente, whatsapp, whatsapp2")
+    .select("id, plano, cidade, excluida, ajuste_pendente, atende_todos_bairros, whatsapp, whatsapp2")
     .eq("user_id", userId)
     .maybeSingle();
   if (!diarista) return null;
@@ -29,9 +29,20 @@ async function carregar(userId: string) {
   const servicos = (srvRows ?? [])
     .map((r) => r.servicos as unknown as { slug: string; nome: string } | null)
     .filter((s): s is { slug: string; nome: string } => !!s);
-  const bairros = (baiRows ?? [])
+  const bairrosRows = (baiRows ?? [])
     .map((r) => r.bairros as unknown as { slug: string; nome: string } | null)
     .filter((b): b is { slug: string; nome: string } => !!b);
+
+  // Opções de bairro para manter. Se ela tinha bairros explícitos, são esses.
+  // Se atendia "todos os bairros" (sem linhas), oferece a cidade inteira — senão
+  // não haveria o que escolher e o ajuste ficaria travado.
+  let bairros = bairrosRows;
+  if (bairros.length === 0 && diarista.atende_todos_bairros) {
+    const cidade = CIDADES.find((c) => c.nome === diarista.cidade);
+    if (cidade) {
+      bairros = bairrosDaCidade(cidade.slug).map((b) => ({ slug: b.slug, nome: b.nome }));
+    }
+  }
 
   return { diarista, servicos, bairros };
 }
