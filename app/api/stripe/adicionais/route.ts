@@ -77,13 +77,19 @@ interface LinhaServico {
 }
 
 // Carrega diarista + serviços já ordenados (inclusos primeiro, por ordem de id).
-async function carregar(userId: string) {
-  const { data: diarista } = await supabaseAdmin
+async function carregar(userId: string, origem = "?") {
+  const { data: diarista, error } = await supabaseAdmin
     .from("diaristas")
     .select("id, plano, excluida, stripe_subscription_id, stripe_item_adicional_id, data_fim_periodo, adicionais_pagos")
     .eq("user_id", userId)
     .maybeSingle();
-  if (!diarista) return null;
+  if (error || !diarista) {
+    // Diagnóstico: distingue "0 linhas" de "2+ linhas" (erro do maybeSingle) etc.
+    console.error("[adicionais] carregar SEM diarista", JSON.stringify({
+      origem, userId, temErro: !!error, erro: error?.message ?? null, code: error?.code ?? null,
+    }));
+    return null;
+  }
 
   const { data: rows } = await supabaseAdmin
     .from("diarista_servicos")
@@ -163,7 +169,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return erro("Não autenticado.", 401);
 
-  const dados = await carregar(user.id);
+  const dados = await carregar(user.id, "GET");
   if (!dados) return erro("Perfil não encontrado.", 404);
 
   return NextResponse.json({
@@ -188,7 +194,7 @@ export async function POST(req: NextRequest) {
   if (!cat) return erro("Serviço inválido.");
   if (action !== "adicionar" && action !== "remover") return erro("Ação inválida.");
 
-  const dados = await carregar(user.id);
+  const dados = await carregar(user.id, "POST");
   if (!dados) return erro("Perfil não encontrado.", 404);
   const { diarista, servicos } = dados;
 
