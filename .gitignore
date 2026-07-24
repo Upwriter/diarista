@@ -13,3 +13,6 @@ next-env.d.ts
 # Anotações locais com segredos — NUNCA versionar (só na máquina)
 *.local.md
 /docs/stripe-credenciais.local.md
+
+# Notas internas que ficam só na máquina
+/docs/seo-marcos.md
