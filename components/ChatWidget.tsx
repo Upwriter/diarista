@@ -41,8 +41,10 @@ function renderContent(texto: string) {
   return partes;
 }
 
-// Cartão clicável de uma diarista indicada.
+// Cartão clicável de uma diarista indicada (ou do atendimento, no fallback).
 function CardDiarista({ nome, url, frase }: { nome: string; url: string; frase: string }) {
+  // Fallback aponta direto ao WhatsApp; diarista cadastrada abre o perfil antes.
+  const direto = url.includes("wa.me") || url.includes("api/whatsapp");
   return (
     <a
       href={url}
@@ -53,7 +55,7 @@ function CardDiarista({ nome, url, frase }: { nome: string; url: string; frase: 
       <p className="font-display text-base font-bold text-ink">{nome}</p>
       {frase && <p className="mt-0.5 text-xs text-ink/60">{frase}</p>}
       <p className="mt-2 text-xs font-semibold text-brand">
-        Ver perfil e chamar no WhatsApp →
+        {direto ? "Falar no WhatsApp →" : "Ver perfil e chamar no WhatsApp →"}
       </p>
     </a>
   );

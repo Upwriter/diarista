@@ -331,9 +331,11 @@ export async function POST(req: NextRequest) {
           `com as profissionais serão exibidos automaticamente abaixo da sua frase.`;
       } else {
         toolContent =
-          `Lead salvo com sucesso, mas no momento não encontramos profissionais disponíveis para ` +
-          `essa combinação de serviço, imóvel e bairro. Agradeça com carinho, diga que nossa equipe ` +
-          `vai ajudar a encontrar uma profissional da região e informe o WhatsApp (11) 92163-0305.`;
+          `Lead salvo com sucesso. Escreva APENAS uma frase de abertura curta, calorosa e natural, ` +
+          `como "Perfeito! Já vou te conectar com uma profissional disponível na sua região:" ` +
+          `(NUNCA diga "as melhores" nem prometa qualidade/preço, e NÃO diga que não encontrou ninguém). ` +
+          `NÃO escreva números de telefone nem links e NÃO adicione mais nada depois da frase — um cartão ` +
+          `para falar no WhatsApp será exibido automaticamente abaixo da sua frase.`;
       }
 
       const followUp = await openai.chat.completions.create({
@@ -363,6 +365,18 @@ export async function POST(req: NextRequest) {
           .map((m) => `[[CARD|${m.nome_completo}|${SITE.url}${m.perfil}${qs}|${frase}]]`)
           .join("\n");
         content = `${content.trim()}\n\n${cards}`;
+      } else {
+        // Sem profissional para a localidade → card de fallback que leva ao
+        // WhatsApp de atendimento (5511921630305), já com serviço/bairro/cidade
+        // pré-preenchidos na mensagem para quem atender.
+        const localTxt = bairroNome ?? args.bairro;
+        const msg =
+          `Olá! Vim pelo Diarista Perto de Mim. Preciso de ${args.servico}` +
+          `${args.frequencia ? ` (${args.frequencia})` : ""}` +
+          `${localTxt ? ` no ${localTxt}` : ""}, ${args.cidade}.`;
+        const waUrl = `https://wa.me/5511921630305?text=${encodeURIComponent(msg)}`;
+        const frase = bairroNome ? `Atende o ${bairroNome}` : "Atende a sua região";
+        content = `${content.trim()}\n\n[[CARD|Profissional disponível na sua região|${waUrl}|${frase}]]`;
       }
 
       // Registra a conversa (vinculando o lead).
