@@ -332,7 +332,7 @@ export async function POST(req: NextRequest) {
       } else {
         toolContent =
           `Lead salvo com sucesso. Escreva APENAS uma frase de abertura curta, calorosa e natural, ` +
-          `como "Perfeito! Já vou te conectar com uma profissional disponível na sua região:" ` +
+          `como "Perfeito! Já vou te conectar com uma profissional que atenda na sua região:" ` +
           `(NUNCA diga "as melhores" nem prometa qualidade/preço, e NÃO diga que não encontrou ninguém). ` +
           `NÃO escreva números de telefone nem links e NÃO adicione mais nada depois da frase — um cartão ` +
           `para falar no WhatsApp será exibido automaticamente abaixo da sua frase.`;
@@ -376,7 +376,7 @@ export async function POST(req: NextRequest) {
           `${localTxt ? ` no ${localTxt}` : ""}, ${args.cidade}.`;
         const waUrl = `https://wa.me/5511921630305?text=${encodeURIComponent(msg)}`;
         const frase = bairroNome ? `Atende o ${bairroNome}` : "Atende a sua região";
-        content = `${content.trim()}\n\n[[CARD|Profissional disponível na sua região|${waUrl}|${frase}]]`;
+        content = `${content.trim()}\n\n[[CARD|Profissional que atende na sua região|${waUrl}|${frase}]]`;
       }
 
       // Registra a conversa (vinculando o lead).
