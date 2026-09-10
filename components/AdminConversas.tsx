@@ -11,6 +11,8 @@ export interface MsgChat {
   horario: string;
 }
 
+export interface DiaRef { id: string; nome: string }
+
 export interface ConversaAdmin {
   id: string;
   iniciadaEm: string | null;
@@ -19,7 +21,33 @@ export interface ConversaAdmin {
   leadNome: string | null;
   viuPerfil: boolean;
   clicouWhatsapp: boolean;
+  perfisVistos: DiaRef[];
+  whatsappClicados: DiaRef[];
   mensagens: MsgChat[];
+}
+
+// Diaristas que a Cida INDICOU na conversa: extraídas dos marcadores [[CARD|nome|url|frase]]
+// salvos no histórico. O id vem da URL do perfil (/diarista/perfil/<id>); o card
+// de fallback (wa.me) não tem id.
+function extrairIndicadas(mensagens: MsgChat[]): { nome: string; id: string | null }[] {
+  const regex = /\[\[CARD\|([^|]*)\|([^|]*)\|[^\]]*\]\]/g;
+  const out: { nome: string; id: string | null }[] = [];
+  const vistos = new Set<string>();
+  for (const m of mensagens) {
+    if (m.autor !== "cida") continue;
+    regex.lastIndex = 0;
+    let mt: RegExpExecArray | null;
+    while ((mt = regex.exec(m.texto)) !== null) {
+      const nome = mt[1];
+      const idMatch = mt[2].match(/\/diarista\/perfil\/([^?&|]+)/);
+      const id = idMatch ? idMatch[1] : null;
+      const chave = id ?? nome;
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      out.push({ nome, id });
+    }
+  }
+  return out;
 }
 
 type Filtro = "todos" | StatusConversa;
@@ -54,6 +82,53 @@ function StatusBadge({ status }: { status: StatusConversa }) {
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${cores[status]}`}>
       {ROTULO[status]}
     </span>
+  );
+}
+
+// Resumo da conversa: quem foi indicada, quais perfis o lead abriu e em qual
+// WhatsApp ele clicou. As indicadas que também clicaram no WhatsApp ganham destaque.
+function ResumoConversa({ conversa }: { conversa: ConversaAdmin }) {
+  const indicadas = extrairIndicadas(conversa.mensagens);
+  const clicadasIds = new Set(conversa.whatsappClicados.map((d) => d.id));
+  return (
+    <div className="space-y-2.5 border-b border-brand-light px-5 py-3 text-sm">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">Diaristas indicadas</p>
+        {indicadas.length === 0 ? (
+          <p className="mt-0.5 text-ink/40">—</p>
+        ) : (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {indicadas.map((d, i) => {
+              const clicou = !!d.id && clicadasIds.has(d.id);
+              const cls = clicou
+                ? "bg-brand text-paper font-semibold"
+                : "bg-brand-light text-brand-dark";
+              const conteudo = `${d.nome}${clicou ? " · clicou no WhatsApp ✓" : ""}`;
+              return d.id ? (
+                <a key={i} href={`/diarista/perfil/${d.id}`} target="_blank" rel="noopener noreferrer"
+                  className={`rounded-full px-2.5 py-0.5 text-xs transition-opacity hover:opacity-80 ${cls}`}>
+                  {conteudo}
+                </a>
+              ) : (
+                <span key={i} className={`rounded-full px-2.5 py-0.5 text-xs ${cls}`}>{conteudo}</span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">Perfis abertos pelo lead</p>
+        <p className="mt-0.5 text-ink/70">
+          {conversa.perfisVistos.length ? conversa.perfisVistos.map((d) => d.nome).join(", ") : "—"}
+        </p>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-ink/40">WhatsApp clicado</p>
+        <p className="mt-0.5 font-semibold text-brand">
+          {conversa.whatsappClicados.length ? conversa.whatsappClicados.map((d) => d.nome).join(", ") : "—"}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -176,6 +251,8 @@ export default function AdminConversas({ dados }: { dados: ConversaAdmin[] }) {
                 ✕
               </button>
             </div>
+
+            <ResumoConversa conversa={aberta} />
 
             <div className="flex-1 space-y-3 overflow-y-auto bg-paper/40 px-4 py-4">
               {aberta.mensagens.length === 0 ? (

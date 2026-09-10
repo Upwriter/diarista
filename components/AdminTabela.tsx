@@ -18,6 +18,16 @@ interface Alteracao {
   user_agent: string | null;
 }
 
+// Lead que clicou no WhatsApp desta diarista.
+interface LeadRecebido {
+  quando: string;
+  temDados: boolean;
+  nome: string | null;
+  whatsapp: string | null;
+  servico: string | null;
+  bairro: string | null;
+}
+
 const SERVICO_NOME: Record<string, string> = {
   "diarista": "Diarista",
   "faxineira": "Faxineira",
@@ -107,19 +117,31 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("ativas");
   const [selecionada, setSelecionada] = useState<DiaristaAdmin | null>(null);
   const [historico, setHistorico] = useState<Alteracao[] | null>(null);
+  const [leadsRecebidos, setLeadsRecebidos] = useState<LeadRecebido[] | null>(null);
 
-  // Carrega o histórico de alterações ao abrir os detalhes de uma diarista.
+  // Carrega histórico de alterações + leads recebidos ao abrir os detalhes.
   useEffect(() => {
-    if (!selecionada) { setHistorico(null); return; }
+    if (!selecionada) { setHistorico(null); setLeadsRecebidos(null); return; }
     let cancelado = false;
     setHistorico(null);
+    setLeadsRecebidos(null);
+    const id = selecionada.id;
     (async () => {
       try {
-        const res = await fetch(`/api/admin/alteracoes?id=${selecionada.id}`);
+        const res = await fetch(`/api/admin/alteracoes?id=${id}`);
         const j = await res.json();
         if (!cancelado) setHistorico(j.ok ? (j.alteracoes as Alteracao[]) : []);
       } catch {
         if (!cancelado) setHistorico([]);
+      }
+    })();
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/leads-diarista?id=${id}`);
+        const j = await res.json();
+        if (!cancelado) setLeadsRecebidos(j.ok ? (j.leads as LeadRecebido[]) : []);
+      } catch {
+        if (!cancelado) setLeadsRecebidos([]);
       }
     })();
     return () => { cancelado = true; };
@@ -420,6 +442,49 @@ export default function AdminTabela({ dados }: { dados: DiaristaAdmin[] }) {
                 </dd>
               </div>
             </dl>
+
+            {/* Leads recebidos (clientes que clicaram no WhatsApp desta diarista) */}
+            <div className="mt-6 border-t border-brand-light pt-5">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-ink/40">
+                Leads recebidos ({selecionada.leads})
+              </h3>
+              {leadsRecebidos === null ? (
+                <p className="mt-3 text-sm text-ink/40">Carregando…</p>
+              ) : leadsRecebidos.length === 0 ? (
+                <p className="mt-3 text-sm text-ink/40">Nenhum lead clicou no WhatsApp ainda.</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {leadsRecebidos.map((l, i) => (
+                    <li key={i} className="rounded-xl border border-brand-light bg-paper/40 p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-ink">
+                          {l.temDados ? (l.nome || "Cliente") : "Contato sem dados (clique direto)"}
+                        </span>
+                        <span className="text-xs text-ink/50">{formatarDataHora(l.quando)}</span>
+                      </div>
+                      {l.temDados && (
+                        <div className="mt-1 text-xs text-ink/70">
+                          {l.whatsapp && (
+                            <>WhatsApp:{" "}
+                              <a
+                                href={whatsappLink(l.whatsapp)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-brand hover:underline"
+                              >
+                                {l.whatsapp}
+                              </a>
+                            </>
+                          )}
+                          {l.servico && <> · Serviço: {l.servico}</>}
+                          {l.bairro && <> · Bairro: {l.bairro}</>}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* Histórico de alterações de plano (serviços adicionais) */}
             <div className="mt-6 border-t border-brand-light pt-5">
