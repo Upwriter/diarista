@@ -27,7 +27,8 @@ interface Params {
   // ID do bairro (já identifica a cidade — nunca comparamos por nome).
   bairroId?: string;
   servicoSlug?: string;
-  imovelSlug?: string;
+  imovelSlug?: string;    // compat: um único imóvel
+  imovelSlugs?: string[]; // vários imóveis — casa quem atende AO MENOS UM deles
 }
 
 // Resolve um slug em id numa tabela de referência. Retorna null se não achar.
@@ -49,23 +50,30 @@ function porRevezamento(a: Candidata, b: Candidata): number {
 }
 
 export async function encontrarDiaristas(params: Params): Promise<DiaristaMatch[]> {
-  const { bairroId, servicoSlug, imovelSlug } = params;
+  const { bairroId, servicoSlug } = params;
 
-  // ── 1) Resolve slugs de serviço/imóvel -> ids. O bairro já vem como ID
+  // Lista de imóveis pedidos (aceita 1 ou vários). Ex.: apartamento + escritório.
+  const slugsImovel = [...new Set(
+    (params.imovelSlugs?.length ? params.imovelSlugs : [params.imovelSlug]).filter(Boolean) as string[]
+  )];
+
+  // ── 1) Resolve slugs de serviço/imóvel(is) -> ids. O bairro já vem como ID
   //       (identifica a cidade), evitando ambiguidade entre bairros de
   //       cidades diferentes com o mesmo nome (ex.: "Centro"). ────────────
-  const [servicoId, imovelId] = await Promise.all([
+  const [servicoId, imovelIdsResolvidos] = await Promise.all([
     idPorSlug("servicos", servicoSlug),
-    idPorSlug("imoveis", imovelSlug),
+    Promise.all(slugsImovel.map((s) => idPorSlug("imoveis", s))),
   ]);
+  const imovelIds = imovelIdsResolvidos.filter(Boolean) as string[];
 
-  // Serviço e imóvel são obrigatórios para haver match.
-  if (!servicoId || !imovelId) return [];
+  // Serviço e ao menos um imóvel são obrigatórios para haver match.
+  if (!servicoId || imovelIds.length === 0) return [];
 
   // ── 2) Conjuntos de diaristas que atendem serviço / imóvel / bairro ──
+  //       No imóvel, casa quem atende QUALQUER UM dos pedidos (ao menos 1).
   const [servicoRows, imovelRows, bairroRows] = await Promise.all([
     supabaseAdmin.from("diarista_servicos").select("diarista_id").eq("servico_id", servicoId),
-    supabaseAdmin.from("diarista_imoveis").select("diarista_id").eq("imovel_id", imovelId),
+    supabaseAdmin.from("diarista_imoveis").select("diarista_id").in("imovel_id", imovelIds),
     bairroId
       ? supabaseAdmin.from("diarista_bairros").select("diarista_id").eq("bairro_id", bairroId)
       : Promise.resolve({ data: [] as { diarista_id: string }[] }),
@@ -75,7 +83,7 @@ export async function encontrarDiaristas(params: Params): Promise<DiaristaMatch[
   const comImovel  = new Set((imovelRows.data ?? []).map((r) => r.diarista_id));
   const comBairro  = new Set((bairroRows.data ?? []).map((r) => r.diarista_id));
 
-  // Precisa atender serviço E imóvel.
+  // Precisa atender o serviço E ao menos um dos imóveis pedidos.
   const candidatasIds = [...comServico].filter((id) => comImovel.has(id));
   if (!candidatasIds.length) return [];
 

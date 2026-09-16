@@ -57,7 +57,9 @@ Você é experiente e sagaz sobre o mundo da limpeza doméstica: entende bem de 
 
 IMPORTANTE: você é ATENDENTE, não diarista. NUNCA diga que é especialista em limpeza, profissional de limpeza, nem que vai executar o serviço. Se perguntarem se você mesma faz a limpeza, responda com gentileza que você é a atendente que ajuda a encontrar uma diarista que atende a sua região.
 
-Seu objetivo é coletar, nesta ordem: (1) a CIDADE onde a pessoa precisa da diarista — pergunte isso PRIMEIRO, oferecendo as cidades atendidas (${lista}); (2) o tipo de serviço (limpeza de casa, lava louça, limpa janelas, passa roupa, faxineira/limpeza pesada, limpeza pós-obra ou cozinheira); (3) a frequência desejada (avulsa, semanal ou quinzenal); (4) o tipo de imóvel (casa térrea, sobrado, apartamento ou escritório); (5) o bairro DENTRO da cidade informada; e (6) o nome e o WhatsApp de contato. Faça uma pergunta de cada vez, mas seja eficiente: se a pessoa já informar vários dados de uma vez, aproveite todos e não repita perguntas; peça o nome e o WhatsApp juntos, numa única pergunta. Considere sempre a cidade informada nas etapas seguintes — o bairro precisa ser um bairro dessa cidade. Se a pessoa mencionar uma cidade que não está na lista de cidades atendidas, explique com gentileza que por enquanto atendemos apenas ${lista}.
+ATENÇÃO — QUEM QUER TRABALHAR COMO DIARISTA: se em qualquer momento a pessoa demonstrar que ela mesma quer PRESTAR o serviço, TRABALHAR como diarista/faxineira ou OFERECER seus serviços (ex.: "quero fazer faxina", "sou diarista e quero clientes", "quero me cadastrar para trabalhar", "eu que faço a limpeza, não quero contratar ninguém"), ela NÃO é cliente. Pare a coleta de dados, NÃO chame salvar_lead, e responda com gentileza que quem quer oferecer seus serviços e ser indicada a clientes deve se cadastrar como profissional na nossa página "Sou diarista": https://www.diaristapertodemim.com.br/sou-diarista . Convide-a a se cadastrar por lá.
+
+Seu objetivo é coletar, nesta ordem: (1) a CIDADE onde a pessoa precisa da diarista — pergunte isso PRIMEIRO, oferecendo as cidades atendidas (${lista}); (2) o tipo de serviço (limpeza de casa, lava louça, limpa janelas, passa roupa, faxineira/limpeza pesada, limpeza pós-obra ou cozinheira); (3) a frequência desejada (avulsa, semanal ou quinzenal); (4) o(s) tipo(s) de imóvel (casa térrea, sobrado, apartamento, escritório) — a pessoa PODE informar MAIS DE UM (ex.: apartamento e escritório); aceite TODOS que ela mencionar e NUNCA peça para escolher apenas um; (5) o bairro DENTRO da cidade informada; e (6) o nome e o WhatsApp de contato. Faça uma pergunta de cada vez, mas seja eficiente: se a pessoa já informar vários dados de uma vez, aproveite todos e não repita perguntas; peça o nome e o WhatsApp juntos, numa única pergunta. Considere sempre a cidade informada nas etapas seguintes — o bairro precisa ser um bairro dessa cidade. Se a pessoa mencionar uma cidade que não está na lista de cidades atendidas, explique com gentileza que por enquanto atendemos apenas ${lista}.
 
 NUNCA prometa 'a melhor diarista' nem garanta qualidade, preço ou resultado — fale sempre em 'profissionais disponíveis na sua região'. Deixe claro, se perguntarem, que a negociação de valores e detalhes é feita diretamente com a profissional, e que o Diarista Perto de Mim apenas faz a conexão. Não invente diaristas específicas.
 
@@ -77,11 +79,11 @@ const SALVAR_LEAD_TOOL: OpenAI.Chat.Completions.ChatCompletionTool = {
         whatsapp:   { type: "string", description: "WhatsApp do cliente com DDD." },
         servico:    { type: "string", description: "Tipo de serviço desejado." },
         frequencia: { type: "string", description: "Frequência desejada: avulsa, semanal ou quinzenal." },
-        imovel:     { type: "string", description: "Tipo de imóvel: casa térrea, sobrado, apartamento ou escritório." },
+        imoveis:    { type: "array", items: { type: "string" }, description: "Tipo(s) de imóvel do serviço — pode ser mais de um: casa térrea, sobrado, apartamento, escritório. Inclua TODOS os que a pessoa mencionar." },
         bairro:     { type: "string", description: "Bairro (dentro da cidade informada) onde o serviço será realizado." },
         detalhes:   { type: "string", description: "Informações adicionais relevantes mencionadas pelo cliente." },
       },
-      required: ["cidade", "nome", "whatsapp", "servico", "frequencia", "imovel", "bairro"],
+      required: ["cidade", "nome", "whatsapp", "servico", "frequencia", "imoveis", "bairro"],
     },
   },
 };
@@ -162,11 +164,11 @@ function mapearImovelSlug(texto: string): string | undefined {
 async function salvarLead(
   args: {
     cidade: string; nome: string; whatsapp: string; servico: string; frequencia: string;
-    imovel: string; bairro: string; detalhes?: string;
+    imoveis?: string[]; imovel?: string; bairro: string; detalhes?: string;
   },
   cidades: CidadeAtendida[],
   bairroSlugCtx?: string
-): Promise<{ leadId?: string; bairroId?: string; bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlug?: string }> {
+): Promise<{ leadId?: string; bairroId?: string; bairroSlug?: string; bairroNome?: string; servicoSlug?: string; imovelSlugs?: string[] }> {
   // Resolve a cidade informada para o valor do banco (ex.: "Guaruja").
   const cidadeInfo = mapearCidadeDb(args.cidade ?? "", cidades);
 
@@ -174,7 +176,11 @@ async function salvarLead(
   const bairroRow = await resolverBairro(args.bairro, cidadeInfo?.db, bairroSlugCtx);
 
   const servicoSlug = mapearServicoSlug(args.servico);
-  const imovelSlug = mapearImovelSlug(args.imovel);
+
+  // Imóvel(is): aceita lista (novo) ou string única (compat). Casa quem atende
+  // ao menos um deles no matching.
+  const imoveisTexto = (args.imoveis?.length ? args.imoveis : (args.imovel ? [args.imovel] : [])).filter(Boolean);
+  const imovelSlugs = [...new Set(imoveisTexto.map(mapearImovelSlug).filter(Boolean) as string[])];
 
   const { data: servicoRow } = servicoSlug
     ? await supabaseAdmin.from("servicos").select("id").eq("slug", servicoSlug).maybeSingle()
@@ -184,7 +190,7 @@ async function salvarLead(
     `Cidade: ${cidadeInfo?.nome ?? args.cidade}`,
     `Serviço: ${args.servico}`,
     `Frequência: ${args.frequencia}`,
-    `Imóvel: ${args.imovel}`,
+    `Imóvel: ${imoveisTexto.join(", ")}`,
     `Bairro informado: ${args.bairro}`,
     args.detalhes ?? "",
   ]
@@ -208,7 +214,7 @@ async function salvarLead(
     bairroSlug: bairroRow?.slug ?? undefined,
     bairroNome: bairroRow?.nome ?? undefined,
     servicoSlug,
-    imovelSlug,
+    imovelSlugs,
   };
 }
 
@@ -307,7 +313,7 @@ export async function POST(req: NextRequest) {
       const args = JSON.parse(rawCall.function.arguments);
 
       // Salva o lead e recupera os dados resolvidos para o matching.
-      const { leadId, bairroId, bairroNome, servicoSlug, imovelSlug } = await salvarLead(args, cidades, bairroSlug);
+      const { leadId, bairroId, bairroNome, servicoSlug, imovelSlugs } = await salvarLead(args, cidades, bairroSlug);
 
       // Garante um id de conversa para vincular lead e cartões.
       const conversaId = await garantirConversa(conversaIdIn);
@@ -317,7 +323,7 @@ export async function POST(req: NextRequest) {
       const matches = await encontrarDiaristas({
         bairroId,
         servicoSlug,
-        imovelSlug,
+        imovelSlugs,
       });
 
       // Monta a instrução de resposta conforme houve ou não match.
